@@ -1,10 +1,13 @@
 "use client";
 import React, { useState } from "react";
-import { Eye, EyeOff, Mail, Lock } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, User, UserPen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
 import { useMutation } from "@tanstack/react-query";
 import { useTRPC } from "@/trpc/client";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 export default function LoginPage() {
   const [showFields, setShowFields] = useState(false);
@@ -14,8 +17,9 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [usernameError, setUsernameError] = useState(false);
-  const { signUp } = authClient;
+  const { signUp, signIn } = authClient;
   const trpc = useTRPC();
+  const router = useRouter();
 
   const { mutate: checkUsername, isPending: checkingUsername } = useMutation(
     trpc.username.checkUsername.mutationOptions({
@@ -29,6 +33,14 @@ export default function LoginPage() {
     })
   );
 
+  const { mutate: continueWithGoogle, isPending: googlePending } = useMutation({
+    mutationKey: ["continueWithGoogle"],
+    mutationFn: () => signIn.social({ provider: "google" }),
+    onSuccess: () => {
+      router.push("/");
+    },
+  });
+
   const { mutate: submit, isPending } = useMutation({
     mutationKey: ["signUp"],
     mutationFn: () =>
@@ -38,7 +50,9 @@ export default function LoginPage() {
         password,
         name,
       }),
-    onSuccess: () => {},
+    onSuccess: () => {
+      router.push("/");
+    },
   });
 
   return (
@@ -49,6 +63,7 @@ export default function LoginPage() {
           <div className="space-y-6">
             <div className="space-y-2">
               <div className="relative">
+                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                 <input
                   type="text"
                   value={username}
@@ -63,7 +78,7 @@ export default function LoginPage() {
               <>
                 <div className="space-y-2">
                   <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                    <UserPen className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                     <input
                       type="text"
                       value={name}
@@ -114,8 +129,9 @@ export default function LoginPage() {
               size="lg"
               className="w-full text-lg mt-4"
               onClick={() => checkUsername({ username })}
+              isLoading={checkingUsername || isPending}
             >
-              Sign in with Ko-fi
+              Sign up
             </Button>
           </div>
 
@@ -125,18 +141,30 @@ export default function LoginPage() {
             <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
           </div>
 
-          <button className="w-full flex items-center justify-center py-3 px-4 bg-white border-2 border-gray-200 rounded-xl  ">
+          <Button
+            className="w-full flex items-center justify-center py-3 px-4 bg-white/80 rounded-md border-black shadow-none hover:bg-white/70"
+            onClick={() => continueWithGoogle()}
+          >
+            <Image
+              src="/google.svg"
+              alt="Continue with google"
+              height={20}
+              width={20}
+            />
             <span className="text-gray-700 font-medium">
               Continue with Google
             </span>
-          </button>
+          </Button>
 
           <div className="mt-8 text-center">
             <p className="text-gray-600">
               Already have an account?{" "}
-              <button className="text-purple-600 hover:text-purple-700 font-semibold transition-colors">
+              <Link
+                href="/login"
+                className="text-purple-600 hover:text-purple-700 font-semibold transition-colors"
+              >
                 Log in here
-              </button>
+              </Link>
             </p>
           </div>
         </div>

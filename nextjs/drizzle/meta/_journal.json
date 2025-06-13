@@ -8,6 +8,20 @@
       "when": 1749410609762,
       "tag": "0000_outstanding_deathstrike",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1749812071641,
+      "tag": "0001_add_index_to_username",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1749813725624,
+      "tag": "0002_add_onboarding_completed",
+      "breakpoints": true
     }
   ]
 }

@@ -4,6 +4,7 @@ import { Eye, EyeOff, Mail, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useTRPC } from "@/trpc/client";
+import Link from "next/link";
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -73,7 +74,7 @@ export default function LoginPage() {
               </button>
             </div>
             <Button size="lg" className="w-full text-lg">
-              Sign in with Ko-fi
+              Sign in
             </Button>
           </div>
 
@@ -94,10 +95,13 @@ export default function LoginPage() {
 
           <div className="mt-8 text-center">
             <p className="text-gray-600">
-              New to Ko-fi?{" "}
-              <button className="text-purple-600 hover:text-purple-700 font-semibold transition-colors">
+              New to tagxi?{" "}
+              <Link
+                href="/signup"
+                className="text-purple-600 hover:text-purple-700 font-semibold transition-colors"
+              >
                 Sign up here
-              </button>
+              </Link>
             </p>
           </div>
         </div>
