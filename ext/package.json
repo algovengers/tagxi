@@ -5,11 +5,12 @@
   "description": "TagXi",
   "author": "Plasmo Corp. <foss@plasmo.com>",
   "scripts": {
-    "dev": "plasmo dev",
+    "dev": "plasmo dev --env=.env",
     "build": "plasmo build",
     "package": "plasmo package"
   },
   "dependencies": {
+    "better-auth": "^1.2.9",
     "plasmo": "0.90.5",
     "react": "18.2.0",
     "react-dom": "18.2.0"
@@ -28,13 +29,16 @@
   },
   "manifest": {
     "host_permissions": [
-      "https://*/*"
+      "https://*/*",
+      "https://accounts.google.com/*"
     ],
+    
     "permissions": [
       "tabs",
       "activeTab",
       "storage",
-      "scripting"
+      "scripting",
+      "identity"
     ]
   }
 }
