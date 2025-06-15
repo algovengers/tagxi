@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "better-auth": "^1.2.9",
+    "boring-avatars": "^1.11.2",
+    "lucide-react": "^0.515.0",
     "plasmo": "0.90.5",
     "react": "18.2.0",
     "react-dom": "18.2.0"
@@ -32,7 +34,6 @@
       "https://*/*",
       "https://accounts.google.com/*"
     ],
-    
     "permissions": [
       "tabs",
       "activeTab",
