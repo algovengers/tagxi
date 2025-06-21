@@ -1,6 +1,60 @@
-const getElementFromXpath = (xpath: string) => {}
+const getElementFromXpath = (xpath: string): Node => {
+  const elment = document.evaluate(xpath, document.documentElement)
+  return elment.iterateNext()
+}
 
-export const highlightXPathElement = (xpath: string) => {}
+const selectAndHighlightText = (
+  element: Node,
+  start: number,
+  end: number,
+  color = "yellow"
+) => {
+  const textNode = element as Text
+  const before = textNode.splitText(start)
+  before.splitText(end - start)
+  const wrapper = document.createElement("mark")
+  wrapper.style.backgroundColor = color
+  wrapper.textContent = before.textContent
+  before.replaceWith(wrapper)
+}
+
+const selectAndHighlightImage = (element: Node) => {
+  if (
+    element &&
+    element.nodeType === Node.ELEMENT_NODE &&
+    (element as HTMLElement).tagName === "IMG"
+  ) {
+    const img = element as HTMLImageElement
+    img.style.border = "3px solid red"
+    img.style.borderRadius = "4px"
+  }
+}
+
+export const selectAndHighlightElement = (
+  xpath: string,
+  startOffset: number,
+  endOffset?: number
+) => {
+  const element = getElementFromXpath(xpath)
+  if (!element) return
+  if (element.nodeType === Node.TEXT_NODE) {
+    if (typeof startOffset === "number" && typeof endOffset === "number") {
+      selectAndHighlightText(element, startOffset, endOffset)
+    } else {
+      const textContentLength = element.textContent?.length
+        ? element.textContent.length
+        : 0
+      selectAndHighlightText(element, startOffset, textContentLength)
+    }
+  } else if (
+    element.nodeType === Node.ELEMENT_NODE &&
+    (element as HTMLElement).tagName === "IMG"
+  ) {
+    selectAndHighlightImage(element)
+  } else if (element.nodeType === Node.ELEMENT_NODE) {
+    ;(element as HTMLElement).style.outline = "2px dashed blue"
+  }
+}
 
 /**
  * Specific to selecting text and image

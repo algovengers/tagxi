@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react"
 
 import TagButton from "~components/WebComponents/TagButton"
 import TagInput from "~components/WebComponents/TagInput"
+import { getXPathForElement, selectAndHighlightElement } from "~lib/xpath/xpath"
 
 /**
  * TODO:
@@ -12,6 +13,9 @@ import TagInput from "~components/WebComponents/TagInput"
  * 9. option to ignore which sites ignore -> need backend
  */
 
+/**
+ * Plasmo specific function for content script ui to apply tailwind
+ */
 export const getStyle = () => {
   const style = document.createElement("style")
   style.textContent = cssText
@@ -41,7 +45,22 @@ const TagxiComponent = () => {
     const range = selection.getRangeAt(0)
     const rect = range.getBoundingClientRect()
 
+    // Information to store
+    // store containers xpath -> if text is selected in more than two html elements
+    // use offset to calculate the start(container) and end(end container)
+    const selectedText = range.toString()
+    const startContainerXPath = getXPathForElement(range.startContainer)
+    const endContainerXPath = getXPathForElement(range.endContainer)
+    const startOffset = range.startOffset
+    const endOffset = range.endOffset
+
     setIconPosition({ top: rect.top - 30, left: rect.left })
+    if (startContainerXPath === endContainerXPath) {
+      selectAndHighlightElement(startContainerXPath, startOffset, endOffset)
+    } else {
+      selectAndHighlightElement(startContainerXPath, startOffset)
+      selectAndHighlightElement(endContainerXPath, 0, endOffset)
+    }
     setShowIcon(true)
     setShowInput(false)
   }, [])
