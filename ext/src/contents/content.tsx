@@ -7,10 +7,14 @@ import { getXPathForElement, selectAndHighlightElement } from "~lib/xpath/xpath"
 
 /**
  * TODO:
- * 2. on click tag icon add the text box with dropdown to add multiple options
+ * 2. bringing data from api and rendering them
+ * 1: notifications and remove the tailwind styling -> otherwise it will hamper the stylng of the main webpage
+ * 4. option for choosing the highlighter and dashed lines -> with hover show the person who tagged you
+ * 3. on click tag icon add the text box with dropdown to add multiple options
  * 6. sending background message to the background worker to save that
  * 8. force reset shortcut to clear out all the tags -> just if required
  * 9. option to ignore which sites ignore -> need backend
+ * 10. web push protocol for notifications
  */
 
 /**

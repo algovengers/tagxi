@@ -5,6 +5,7 @@ import {
   boolean,
   uniqueIndex,
   primaryKey,
+  jsonb,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -75,6 +76,14 @@ export const tag = pgTable("tags", {
   userId: text("user_id")
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),
+  site: text("site").notNull(),
+  // basically details required for highlighting the info
+  metadata: jsonb("metadata").$type<{
+    start_tag_xpath: string;
+    end_tag_xpath: string;
+    start_tag_offset: number;
+    end_tag_offset: number;
+  }>(),
   createdAt: timestamp("created_at")
     .$defaultFn(() => new Date())
     .notNull(),
