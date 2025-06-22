@@ -25,7 +25,7 @@ export const user = pgTable(
     updatedAt: timestamp("updated_at")
       .$defaultFn(() => new Date())
       .notNull(),
-    username: text("username").unique(),
+    username: text("username").unique().notNull(),
   },
   (user) => [uniqueIndex("username_idx").on(user.username)]
 );
@@ -73,17 +73,19 @@ export const verification = pgTable("verification", {
 
 export const tag = pgTable("tags", {
   id: text("id").primaryKey(),
-  userId: text("user_id")
+  username: text("username")
     .notNull()
-    .references(() => user.id, { onDelete: "cascade" }),
+    .references(() => user.username, { onDelete: "cascade" }),
   site: text("site").notNull(),
   // basically details required for highlighting the info
-  metadata: jsonb("metadata").$type<{
-    start_tag_xpath: string;
-    end_tag_xpath: string;
-    start_tag_offset: number;
-    end_tag_offset: number;
-  }>().notNull(),
+  metadata: jsonb("metadata")
+    .$type<{
+      start_tag_xpath: string;
+      end_tag_xpath: string;
+      start_tag_offset: number;
+      end_tag_offset: number;
+    }>()
+    .notNull(),
   createdAt: timestamp("created_at")
     .$defaultFn(() => new Date())
     .notNull(),
@@ -138,7 +140,7 @@ export const accountRelations = relations(account, ({ one }) => ({
 
 export const tagRelations = relations(tag, ({ one, many }) => ({
   createdBy: one(user, {
-    fields: [tag.userId],
+    fields: [tag.username],
     references: [user.id],
   }),
   userTagged: many(userTags),

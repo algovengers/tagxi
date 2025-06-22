@@ -43,6 +43,13 @@
       "when": 1750614102528,
       "tag": "0005_sharp_dust",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1750616345876,
+      "tag": "0006_minor_omega_sentinel",
+      "breakpoints": true
     }
   ]
 }
