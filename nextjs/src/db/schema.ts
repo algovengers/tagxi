@@ -83,7 +83,7 @@ export const tag = pgTable("tags", {
     end_tag_xpath: string;
     start_tag_offset: number;
     end_tag_offset: number;
-  }>(),
+  }>().notNull(),
   createdAt: timestamp("created_at")
     .$defaultFn(() => new Date())
     .notNull(),
@@ -93,12 +93,13 @@ export const tag = pgTable("tags", {
 });
 
 // an intermediate table to have many to many relationship between user and tags
+// when making a tag -> the owner's userid will be stored and the usernames of the tagged user will be saved
 export const userTags = pgTable(
   "user_tags",
   {
-    userId: text("user_id")
+    username: text("username")
       .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
+      .references(() => user.username, { onDelete: "cascade" }),
     tagId: text("tag_id")
       .notNull()
       .references(() => tag.id, { onDelete: "cascade" }),
@@ -110,7 +111,7 @@ export const userTags = pgTable(
       .notNull(),
   },
   (table) => ({
-    pk: primaryKey({ columns: [table.userId, table.tagId] }),
+    pk: primaryKey({ columns: [table.username, table.tagId] }),
   })
 );
 
@@ -145,7 +146,7 @@ export const tagRelations = relations(tag, ({ one, many }) => ({
 
 export const userTagRelations = relations(userTags, ({ one }) => ({
   user: one(user, {
-    fields: [userTags.userId],
+    fields: [userTags.username],
     references: [user.id],
   }),
   tag: one(tag, {
