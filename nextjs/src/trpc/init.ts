@@ -21,7 +21,29 @@ export const createCallerFactory = t.createCallerFactory;
 export const baseProcedure = t.procedure;
 
 export const protectedProcedure = baseProcedure.use(async ({ ctx, next }) => {
-  const session = auth.api.getSession({
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+
+  if (!session) {
+    throw new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "Unauthorized access. Please log in.",
+    });
+  }
+
+  if (session.user.username === null) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "You must complete onboarding before accessing this resource.",
+    });
+  }
+
+  return next({ ctx: { ...ctx, auth: session } });
+});
+
+export const onboardingProcedure = baseProcedure.use(async ({ ctx, next }) => {
+  const session = await auth.api.getSession({
     headers: await headers(),
   });
 

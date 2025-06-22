@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { baseProcedure, createTRPCRouter } from "../init";
-import { usernameRouter } from "./username";
+import { usernameRouter, userRouter } from "./user";
 export const appRouter = createTRPCRouter({
+  user: userRouter,
   username: usernameRouter,
   hello: baseProcedure
     .input(

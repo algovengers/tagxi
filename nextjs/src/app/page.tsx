@@ -1,11 +1,12 @@
 import Header from "@/components/header";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Happy_Monkey } from "next/font/google";
+import { Poppins } from "next/font/google";
 
-const happyMonkey = Happy_Monkey({
+const poppins = Poppins({
+  variable: "--font-poppins",
   subsets: ["latin"],
-  weight: ["400"],
-  variable: "--font-happy-monkey",
+  weight: ["400", "700"],
 });
 
 export default function Home() {
@@ -14,12 +15,15 @@ export default function Home() {
       <Header />
       <h1
         className={cn(
-          "text-6xl font-bold text-center py-12",
-          happyMonkey.className
+          "text-6xl font-bold text-center pt-20 pb-10",
+          poppins.className
         )}
       >
-        Tag People anywhere and everywhere on the web.
+        Tag your friends anywhere and everywhere on the web.
       </h1>
+      <div className="flex items-center justify-center">
+        <Button size="lg">Start Tagging now</Button>
+      </div>
     </div>
   );
 }

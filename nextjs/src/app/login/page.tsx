@@ -4,7 +4,10 @@ import { Eye, EyeOff, Mail, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useTRPC } from "@/trpc/client";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { authClient } from "@/lib/auth-client";
+import Image from "next/image";
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -12,6 +15,8 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const trpc = useTRPC();
   //   const [isLoading, setIsLoading] = useState(false);
+  const { signUp, signIn } = authClient;
+  const router = useRouter();
   const {} = useQuery(
     trpc.hello.queryOptions({
       text: "Hello",
@@ -22,9 +27,13 @@ export default function LoginPage() {
     mutationFn: async () => {},
   });
 
-  const handleGoogleLogin = () => {
-    alert("Google login clicked!");
-  };
+  const { mutate: continueWithGoogle, isPending: googlePending } = useMutation({
+    mutationKey: ["continueWithGoogle"],
+    mutationFn: () => signIn.social({ provider: "google" }),
+    onSuccess: () => {
+      router.push("/");
+    },
+  });
 
   return (
     <div className="min-h-screen max-w-4xl mx-auto py-8">
@@ -84,14 +93,20 @@ export default function LoginPage() {
             <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
           </div>
 
-          <button
-            onClick={handleGoogleLogin}
-            className="w-full flex items-center justify-center py-3 px-4 bg-white border-2 border-gray-200 rounded-xl  "
+          <Button
+            className="w-full flex items-center justify-center py-3 px-4 bg-white/80 rounded-md border-black shadow-none hover:bg-white/70 cursor-pointer"
+            onClick={() => continueWithGoogle()}
           >
+            <Image
+              src="/google.svg"
+              alt="Continue with google"
+              height={20}
+              width={20}
+            />
             <span className="text-gray-700 font-medium">
               Continue with Google
             </span>
-          </button>
+          </Button>
 
           <div className="mt-8 text-center">
             <p className="text-gray-600">

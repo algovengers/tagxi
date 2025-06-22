@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
-import { Nunito } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import { TRPCReactProvider } from "@/trpc/client";
+import { NextSSRPlugin } from "@uploadthing/react/next-ssr-plugin";
+import { extractRouterConfig } from "uploadthing/server";
+import { ourFileRouter } from "./api/uploadthing/core";
 
-const nunati = Nunito({
-  variable: "--font-nunati",
+const inter = Inter({
+  variable: "--font-poppins",
   subsets: ["latin"],
   weight: ["400", "700"],
 });
@@ -22,7 +25,10 @@ export default function RootLayout({
   return (
     <TRPCReactProvider>
       <html lang="en">
-        <body className={nunati.className}>{children}</body>
+        <body className={inter.className}>
+          <NextSSRPlugin routerConfig={extractRouterConfig(ourFileRouter)} />
+          {children}
+        </body>
       </html>
     </TRPCReactProvider>
   );

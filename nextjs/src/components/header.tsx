@@ -2,6 +2,7 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { Button } from "./ui/button";
 import { auth } from "@/lib/auth";
+import Logo from "./logo";
 
 export default async function Header() {
   const header = await headers();
@@ -9,9 +10,9 @@ export default async function Header() {
     headers: header,
   });
   return (
-    <div className="w-full py-8">
+    <div className="w-full p-4 rounded-b-3xl bg-white">
       <div className="flex-1 flex flex-row justify-between items-center">
-        <div className="font-happy-monkey text-2xl">Tagxi</div>
+        <Logo />
         <div className="flex flex-row gap-4 items-center text-xl">
           <div>How it works</div>
           {session?.user ? (
@@ -20,7 +21,11 @@ export default async function Header() {
             </>
           ) : (
             <>
-              <Link href="/login">Log in</Link>
+              <Link href="/login">
+                <Button size="lg" variant="outline">
+                  Log in
+                </Button>
+              </Link>
               <Link href="/signup">
                 <Button size="lg">Sign up</Button>
               </Link>
