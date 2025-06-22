@@ -1,3 +1,24 @@
+# API structure -> for later referencing
+## Auth
+> use better auth client package
+
+## Tag related
+app/
+└── api/
+    └── tags/
+        ├── route.ts                          ← POST /api/tags, GET /api/tags (most recent)
+        ├── [id]/route.ts                     ← GET /api/tags/:id, DELETE /api/tags/:id
+        ├── user/
+        │   ├── route.ts                      ← GET /api/tags/user (made by user)
+        │   └── tagged/route.ts               ← GET /api/tags/user/tagged
+        ├── website/route.ts                  ← GET /api/tags/website (tags on domain)
+        ├── page/route.ts                     ← GET /api/tags/page?url=
+        ├── feed/route.ts                     ← GET /api/tags/feed
+        ├── leaderboard/route.ts              ← GET /api/tags/leaderboard
+        └── streak/route.ts                   ← GET /api/tags/streak
+
+## Notifications related
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
