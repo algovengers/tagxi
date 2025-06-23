@@ -5,6 +5,7 @@ import { TRPCReactProvider } from "@/trpc/client";
 import { NextSSRPlugin } from "@uploadthing/react/next-ssr-plugin";
 import { extractRouterConfig } from "uploadthing/server";
 import { ourFileRouter } from "./api/uploadthing/core";
+import { cn } from "@/lib/utils";
 
 const inter = Inter({
   variable: "--font-poppins",
@@ -25,7 +26,7 @@ export default function RootLayout({
   return (
     <TRPCReactProvider>
       <html lang="en">
-        <body className={inter.className}>
+        <body className={cn(inter.className, "h-screen")}>
           <NextSSRPlugin routerConfig={extractRouterConfig(ourFileRouter)} />
           {children}
         </body>

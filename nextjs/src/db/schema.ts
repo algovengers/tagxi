@@ -112,9 +112,46 @@ export const userTags = pgTable(
       .$defaultFn(() => new Date())
       .notNull(),
   },
-  (table) => ({
-    pk: primaryKey({ columns: [table.username, table.tagId] }),
-  })
+  (table) => [primaryKey({ columns: [table.username, table.tagId] })]
+);
+
+export const friendRequest = pgTable("friend_requests", {
+  id: text("id").primaryKey(),
+  senderId: text("sender_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  receiverId: text("receiver_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  status: text("status", { enum: ["pending", "accepted", "rejected"] })
+    .notNull()
+    .default("pending"),
+  createdAt: timestamp("created_at")
+    .$defaultFn(() => new Date())
+    .notNull(),
+  updatedAt: timestamp("updated_at")
+    .$defaultFn(() => new Date())
+    .notNull(),
+});
+
+// Design desicion: userId1 < userId2 to avoid duplicates
+export const friend = pgTable(
+  "friends",
+  {
+    userId1: text("user_id_1").references(() => user.id, {
+      onDelete: "cascade",
+    }),
+    userId2: text("user_id_2").references(() => user.id, {
+      onDelete: "cascade",
+    }),
+    createdAt: timestamp("created_at")
+      .$defaultFn(() => new Date())
+      .notNull(),
+    updatedAt: timestamp("updated_at")
+      .$defaultFn(() => new Date())
+      .notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.userId1, table.userId2] })]
 );
 
 export const userRelations = relations(user, ({ many, one }) => ({
@@ -122,6 +159,7 @@ export const userRelations = relations(user, ({ many, one }) => ({
   account: one(account),
   createdTags: many(tag),
   taggedAt: many(userTags),
+  friends: many(friend),
 }));
 
 export const sessionRelations = relations(session, ({ one }) => ({
@@ -154,5 +192,16 @@ export const userTagRelations = relations(userTags, ({ one }) => ({
   tag: one(tag, {
     fields: [userTags.tagId],
     references: [tag.id],
+  }),
+}));
+
+export const friendRelations = relations(friend, ({ one }) => ({
+  user1: one(user, {
+    fields: [friend.userId1],
+    references: [user.id],
+  }),
+  user2: one(user, {
+    fields: [friend.userId2],
+    references: [user.id],
   }),
 }));

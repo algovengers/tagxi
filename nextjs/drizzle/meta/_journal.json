@@ -50,6 +50,13 @@
       "when": 1750616345876,
       "tag": "0006_minor_omega_sentinel",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1750692064580,
+      "tag": "0007_equal_sue_storm",
+      "breakpoints": true
     }
   ]
 }

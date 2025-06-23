@@ -1,3 +1,4 @@
+import Header from "@/components/header";
 import Logo from "@/components/logo";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
@@ -19,9 +20,6 @@ export default async function HomePage() {
 
   return (
     <div>
-      <div className="p-8">
-        <Logo />
-      </div>
       <div>Welcome Home!</div>
     </div>
   );
