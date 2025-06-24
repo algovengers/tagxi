@@ -13,11 +13,11 @@ export default async function Header() {
   });
   // should be there always
   const user = session!.user;
-  console.log(user.image)
+  console.log(user.image);
 
   return (
     <div className="w-full p-4 flex flex-row justify-between bg-white items-center">
-      <Logo />
+      <Logo  />
       <Input placeholder="Search" className="max-w-xl" />
       <div className="flex flex-row gap-8 items-center">
         <Bell size={20} />

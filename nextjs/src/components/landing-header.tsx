@@ -12,7 +12,7 @@ export default async function Header() {
   return (
     <div className="w-full p-4 rounded-b-3xl bg-white">
       <div className="flex-1 flex flex-row justify-between items-center">
-        <Logo />
+        <Logo home={false} />
         <div className="flex flex-row gap-4 items-center text-xl">
           <div>How it works</div>
           {session?.user ? (

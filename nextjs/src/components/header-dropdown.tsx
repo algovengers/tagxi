@@ -8,17 +8,17 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { User as UserType } from "@/db/types";
 import { LogOut, Settings, User } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { authClient } from "@/lib/auth-client";
+import { User as BetterAuthUser } from "better-auth";
 
 export default function HeaderDropdown({
   children,
   user,
 }: {
   children: React.ReactNode;
-  user: Partial<UserType>;
+  user: BetterAuthUser;
 }) {
   const auth = authClient;
   const onClick = async () => {

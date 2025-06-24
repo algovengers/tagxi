@@ -139,12 +139,16 @@ export const friendRequestTable = pgTable("friend_requests", {
 export const friendTable = pgTable(
   "friends",
   {
-    userId1: text("user_id_1").references(() => user.id, {
-      onDelete: "cascade",
-    }),
-    userId2: text("user_id_2").references(() => user.id, {
-      onDelete: "cascade",
-    }),
+    userId1: text("user_id_1")
+      .notNull()
+      .references(() => user.id, {
+        onDelete: "cascade",
+      }),
+    userId2: text("user_id_2")
+      .notNull()
+      .references(() => user.id, {
+        onDelete: "cascade",
+      }),
     createdAt: timestamp("created_at")
       .$defaultFn(() => new Date())
       .notNull(),
