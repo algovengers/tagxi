@@ -1,10 +1,17 @@
 import type { NextConfig } from "next";
 
-const nextConfig: NextConfig = {
-  /* config options here */
+const config: NextConfig = {
   images: {
-    domains: ["zogewkb0y4.ufs.sh"],
+    remotePatterns: [
+      {
+        protocol: "https", // Only allow HTTPS images for security
+        hostname: "**", // '**' is a wildcard that matches ANY domain
+      },
+    ],
+    // TODO: FIX THIS LATER
+    unoptimized: true, // Disables Next.js image optimization to allow any source
+    // WARNING: This removes many performance benefits
   },
 };
 
-export default nextConfig;
+export default config;

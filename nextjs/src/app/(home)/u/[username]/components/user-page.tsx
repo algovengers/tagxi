@@ -1,18 +1,82 @@
+"use client";
+import { Button } from "@/components/ui/button";
 import { FriendRequest, User } from "@/db/types";
+import { useTRPC } from "@/trpc/client";
+import { useMutation } from "@tanstack/react-query";
 import { Settings } from "lucide-react";
 import Image from "next/image";
+import { useState } from "react";
+import { User as BetterAuthUser } from "better-auth";
+
+function FriendReqButton({
+  areFriends,
+  currentUserId,
+  friendReq,
+  isCurrentUser,
+  onSendFriendRequest,
+  onAcceptFriendRequest,
+}: {
+  areFriends: boolean;
+  friendReq: FriendRequest | null;
+  isCurrentUser: boolean;
+  currentUserId: string | undefined | null;
+  onSendFriendRequest: () => void;
+  onAcceptFriendRequest: () => void;
+}) {
+  if (isCurrentUser || !currentUserId) {
+    return <></>;
+  }
+
+  if (areFriends) {
+    return <div>Friends</div>;
+  }
+
+  if (!friendReq) {
+    return <Button onClick={onSendFriendRequest}>Add Friend</Button>;
+  }
+
+  if (friendReq.senderId === currentUserId) {
+    return <Button disabled>Friend Request Sent</Button>;
+  }
+
+  return (
+    <div>
+      <Button onClick={onAcceptFriendRequest}>Accept Friend Request</Button>
+      {/* <Button variant="destructive">Reject Friend Request</Button> */}
+    </div>
+  );
+}
 
 export default function UserPage({
   user,
   currentUser,
-  areFriends,
+  areFriends: $areFriends,
   friendReq,
 }: {
-  currentUser: Partial<User> | null;
-  user: Partial<User>;
+  currentUser: BetterAuthUser | null;
+  user: User;
   areFriends: boolean;
   friendReq: FriendRequest | null;
 }) {
+  const [areFriends, setAreFriends] = useState($areFriends);
+  const trpc = useTRPC();
+
+  const { mutate: sendFriendRequest } = useMutation(
+    trpc.friendRequest.sendFriendRequest.mutationOptions({
+      onSuccess: () => {
+        // setAreFriends(true);
+      },
+    })
+  );
+
+  const { mutate: acceptRequest } = useMutation(
+    trpc.friendRequest.acceptFriendRequest.mutationOptions({
+      onSuccess: () => {
+        setAreFriends(true);
+      },
+    })
+  );
+
   return (
     <div className="max-w-2xl mx-auto w-full px-4 py-4 my-8 flex justify-between items-center bg-white rounded-2xl">
       <div className="flex items-center gap-4">
@@ -29,23 +93,15 @@ export default function UserPage({
         </div>
       </div>
 
-      {currentUser && currentUser.id !== user.id && (
-        <div className="flex gap-4">
-          {areFriends ? (
-            <button className="bg-blue-500 text-white px-4 py-2 rounded">
-              Friends
-            </button>
-          ) : friendReq ? (
-            <button className="bg-yellow-500 text-white px-4 py-2 rounded">
-              Friend Request Sent
-            </button>
-          ) : (
-            <button className="bg-green-500 text-white px-4 py-2 rounded">
-              Add Friend
-            </button>
-          )}
-        </div>
-      )}
+      <FriendReqButton
+        areFriends={areFriends}
+        currentUserId={currentUser?.id}
+        friendReq={friendReq}
+        isCurrentUser={currentUser?.id === user.id}
+        onSendFriendRequest={() => sendFriendRequest({ to: user.username })}
+        onAcceptFriendRequest={() => acceptRequest({ from: user.id })}
+      />
+
       {currentUser && currentUser.id === user.id && (
         <div>
           <Settings />

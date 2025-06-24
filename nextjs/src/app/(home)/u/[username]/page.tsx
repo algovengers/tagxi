@@ -12,7 +12,7 @@ export default async function Page({
 }: {
   params: { username: string };
 }) {
-  const { username } = params;
+  const { username } = await params;
   const header = await headers();
   const currentSession = await auth.api.getSession({
     headers: header,

@@ -9,7 +9,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 
-export default function LoginPage() {
+export default function SignupPage() {
   const [showFields, setShowFields] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
@@ -32,6 +32,8 @@ export default function LoginPage() {
       },
     })
   );
+
+  // const {} = useMutation({})
 
   const { mutate: continueWithGoogle, isPending: googlePending } = useMutation({
     mutationKey: ["continueWithGoogle"],

@@ -7,6 +7,7 @@ import {
   primaryKey,
   jsonb,
 } from "drizzle-orm/pg-core";
+import { createId } from "@paralleldrive/cuid2";
 import { relations } from "drizzle-orm";
 
 export const user = pgTable(
@@ -115,8 +116,8 @@ export const userTags = pgTable(
   (table) => [primaryKey({ columns: [table.username, table.tagId] })]
 );
 
-export const friendRequest = pgTable("friend_requests", {
-  id: text("id").primaryKey(),
+export const friendRequestTable = pgTable("friend_requests", {
+  id: text("id").primaryKey().$defaultFn(createId),
   senderId: text("sender_id")
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),
@@ -135,7 +136,7 @@ export const friendRequest = pgTable("friend_requests", {
 });
 
 // Design desicion: userId1 < userId2 to avoid duplicates
-export const friend = pgTable(
+export const friendTable = pgTable(
   "friends",
   {
     userId1: text("user_id_1").references(() => user.id, {
@@ -159,7 +160,7 @@ export const userRelations = relations(user, ({ many, one }) => ({
   account: one(account),
   createdTags: many(tag),
   taggedAt: many(userTags),
-  friends: many(friend),
+  friends: many(friendTable),
 }));
 
 export const sessionRelations = relations(session, ({ one }) => ({
@@ -195,13 +196,13 @@ export const userTagRelations = relations(userTags, ({ one }) => ({
   }),
 }));
 
-export const friendRelations = relations(friend, ({ one }) => ({
+export const friendRelations = relations(friendTable, ({ one }) => ({
   user1: one(user, {
-    fields: [friend.userId1],
+    fields: [friendTable.userId1],
     references: [user.id],
   }),
   user2: one(user, {
-    fields: [friend.userId2],
+    fields: [friendTable.userId2],
     references: [user.id],
   }),
 }));

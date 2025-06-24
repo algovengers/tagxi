@@ -3,7 +3,7 @@ import { and, eq, or } from "drizzle-orm";
 
 export const activeFriendRequest = async (userId1: string, userId2: string) => {
   try {
-    const freq = await db.query.friendRequest.findFirst({
+    const freq = await db.query.friendRequestTable.findFirst({
       where: (fr) =>
         and(
           or(

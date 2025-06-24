@@ -13,6 +13,7 @@ export default async function Header() {
   });
   // should be there always
   const user = session!.user;
+  console.log(user.image)
 
   return (
     <div className="w-full p-4 flex flex-row justify-between bg-white items-center">

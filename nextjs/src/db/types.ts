@@ -1,4 +1,4 @@
-import { friendRequest, user } from "./schema";
+import { friendRequestTable, user } from "./schema";
 
 export type User = typeof user.$inferSelect;
-export type FriendRequest = typeof friendRequest.$inferSelect;
+export type FriendRequest = typeof friendRequestTable.$inferSelect;
