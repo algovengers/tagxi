@@ -27,17 +27,9 @@ export const withZodValidator = async <
 >(
   schema: T,
   data: unknown
-): Promise<z.infer<T>> => {
-  try {
-    const parsedData = await schema.parseAsync(data);
-    return parsedData;
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { message: "Validation failed", errors: error.formErrors.fieldErrors },
-        { status: 400 }
-      );
-    }
-    throw error;
-  }
+): Promise<z.infer<T> | { error: z.ZodError<any> }> => {
+  const parsedData = await schema.safeParseAsync(data);
+
+  if (parsedData.error) return { error: parsedData.error };
+  return parsedData.data;
 };

@@ -26,7 +26,7 @@ export const user = pgTable(
     updatedAt: timestamp("updated_at")
       .$defaultFn(() => new Date())
       .notNull(),
-    username: text("username").unique().notNull(),
+    username: text("username").unique(),
   },
   (user) => [uniqueIndex("username_idx").on(user.username)]
 );

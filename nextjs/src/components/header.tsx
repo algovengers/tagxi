@@ -5,7 +5,7 @@ import { auth } from "@/lib/auth";
 import Image from "next/image";
 import { Bell } from "lucide-react";
 import HeaderDropdown from "./header-dropdown";
-
+import type { User } from "@/db/types";
 export default async function Header() {
   const header = await headers();
   const session = await auth.api.getSession({
@@ -22,7 +22,7 @@ export default async function Header() {
       <div className="flex flex-row gap-8 items-center">
         <Bell size={20} />
         <div className="flex flex-row gap-2 items-center">
-          <HeaderDropdown user={user}>
+          <HeaderDropdown user={user as User}>
             <Image
               src={user.image ?? "/default-avatar.png"}
               alt="User Avatar"
