@@ -1,10 +1,12 @@
-import React, { useState } from "react"
+import React, { useEffect, useState } from "react"
 
 import "~style.css"
 
 import Avatar from "boring-avatars"
 import TagxiHeroImage from "data-base64:assets/tagxi-hero.png"
 import { BellIcon, ChevronRight } from "lucide-react"
+
+import { sendToBackground } from "@plasmohq/messaging"
 
 import { Card, getEllipsedText } from "~components/Card"
 import InteractiveText from "~components/InteractiveText"
@@ -44,7 +46,28 @@ const collectibles = [
   { id: 3, name: "React Pro", image: "https://picsum.photos/200" }
 ]
 
+// TODO:emulate loading state
 const Popup = () => {
+  const [currentTab, setCurrentTab] = useState("")
+
+  async function getCurrentUrl() {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+    setCurrentTab(tab.url)
+  }
+
+  useEffect(() => {
+    getCurrentUrl()
+    sendToBackground({
+      name: "get-auth"
+    }).then((auth) => {
+      if (
+        window.location.href.startsWith(process.env.PLASMO_PUBLIC_BACKEND_URL)
+      )
+        return
+      if (!auth?.session)
+        window.location.href = process.env.PLASMO_PUBLIC_BACKEND_URL
+    })
+  }, [currentTab])
   return (
     <div className="w-[22rem] pb-2 bg-gradient-to-tr from-[#f9fbfc] to-[#f9fbfc] overflow-hidden font-sans relative">
       {/* Header */}

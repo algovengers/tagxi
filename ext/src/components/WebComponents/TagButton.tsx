@@ -12,7 +12,7 @@ const TagButton: React.FC<TagButtonProps> = ({ position, onClick }) => {
       onClick={onClick}
       id="tagxi-icon"
       style={{
-        position: "relative",
+        position: "fixed",
         top: `${position.top}px`,
         left: `${position.left}px`,
         zIndex: 999999
