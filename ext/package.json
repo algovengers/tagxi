@@ -10,6 +10,7 @@
     "package": "plasmo package"
   },
   "dependencies": {
+    "@plasmohq/messaging": "^0.7.2",
     "better-auth": "^1.2.9",
     "boring-avatars": "^1.11.2",
     "clsx": "^2.1.1",
@@ -40,7 +41,8 @@
       "activeTab",
       "storage",
       "scripting",
-      "identity"
+      "identity",
+      "notifications"
     ]
   }
 }
