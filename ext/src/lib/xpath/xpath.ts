@@ -1,8 +1,15 @@
-const getElementFromXpath = (xpath: string): Node => {
-  const elment = document.evaluate(xpath, document.documentElement)
-  return elment.iterateNext()
+const getElementFromXpath = (xpath: string): Node | null => {
+  xpath.replace(/\\"/g, '"')
+  const result = document.evaluate(
+    xpath,
+    document.documentElement,
+    null, // namespaceResolver (not needed for simple XPath)
+    XPathResult.FIRST_ORDERED_NODE_TYPE, // Specify result type
+    null // Result (usually null to create a new result)
+  )
+  const node = result.singleNodeValue // Use singleNodeValue for FIRST_ORDERED_NODE_TYPE
+  return node
 }
-
 const selectAndHighlightText = (
   element: Node,
   start: number,
@@ -36,6 +43,7 @@ export const selectAndHighlightElement = (
   endOffset?: number
 ) => {
   const element = getElementFromXpath(xpath)
+
   if (!element) return
   if (element.nodeType === Node.TEXT_NODE) {
     if (typeof startOffset === "number" && typeof endOffset === "number") {
@@ -80,7 +88,7 @@ export const getXPathForElement = (node: Node): string => {
     const element = node as HTMLElement
     const elementPath = [`//${element.nodeName}`]
     const id = element?.id
-    if (id) elementPath.push(`[@id="${id}"]`)
+    if (id) return `//${element.nodeName}[@id="${id}"]`
     path.push(elementPath.join(""))
   }
 
