@@ -1,4 +1,4 @@
-import React from "react"
+import React, { useEffect, useState } from "react"
 
 type TagButtonProps = {
   position: { top: number; left: number }
@@ -6,6 +6,11 @@ type TagButtonProps = {
 }
 
 const TagButton: React.FC<TagButtonProps> = ({ position, onClick }) => {
+  const [show, setShow] = useState(false)
+
+  useEffect(() => {
+    requestAnimationFrame(() => setShow(true))
+  }, [])
 
   return (
     <button
@@ -17,8 +22,9 @@ const TagButton: React.FC<TagButtonProps> = ({ position, onClick }) => {
         left: `${position.left}px`,
         zIndex: 999999
       }}
-      className="text-xl bg-white p-1 rounded cursor-pointer shadow"
-    >
+      className={`flex items-center bg-white border border-gray-300 rounded px-1 
+        transition-all duration-75 ease-out 
+        ${show ? "translate-y-0 opacity-100" : "-translate-y-4 opacity-0"}`}>
       🔖
     </button>
   )
