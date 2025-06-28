@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { username } from "better-auth/plugins";
 import { account, session, user, verification, settings } from "@/db/schema";
 import { nextCookies } from "better-auth/next-js";
+import { eq } from "drizzle-orm";
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
@@ -34,13 +35,13 @@ export const auth = betterAuth({
         matcher(context) {
           return context.path === "/sign-up/email" || context.path?.includes("/callback/");
         },
-        handler: async (ctx) => {
+        async handler(ctx) {
           // Create default settings for new users
           if (ctx.user && ctx.user.id) {
             try {
               // Check if settings already exist
               const existingSettings = await db.query.settings.findFirst({
-                where: (settings) => settings.userId === ctx.user.id,
+                where: (settingsTable) => eq(settingsTable.userId, ctx.user.id),
               });
 
               if (!existingSettings) {
