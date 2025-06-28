@@ -47,7 +47,6 @@ const handler: PlasmoMessaging.MessageHandler = async (req, res) => {
       success: true,
       message: "Tag saved successfully"
     })
-
   } catch (error) {
     console.error("Error in save-tag handler:", error)
 
@@ -56,7 +55,7 @@ const handler: PlasmoMessaging.MessageHandler = async (req, res) => {
       error: error.message,
       message: "Failed to save tag",
       authenticationRequired:
-        error instanceof HTTPError ? [400, 401].includes(error.code) : false
+        error instanceof HTTPError ? 401 === error.code : false
     })
   }
 }

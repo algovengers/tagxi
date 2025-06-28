@@ -23,7 +23,7 @@ const handler: PlasmoMessaging.MessageHandler = async (req, res) => {
       error: error.message,
       message: "Failed to fetch tags",
       authenticationRequired:
-        error instanceof HTTPError ? [400, 401].includes(error.code) : false
+        error instanceof HTTPError ? 401 === error.code : false
     })
   }
 }
