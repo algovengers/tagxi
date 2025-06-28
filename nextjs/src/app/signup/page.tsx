@@ -26,6 +26,7 @@ export default function SignupPage() {
       onSuccess: (data) => {
         if (data.available) {
           setShowFields(true);
+          setUsernameError(false);
         } else {
           setUsernameError(true);
         }
@@ -35,9 +36,12 @@ export default function SignupPage() {
 
   const { mutate: continueWithGoogle, isPending: googlePending } = useMutation({
     mutationKey: ["continueWithGoogle"],
-    mutationFn: () => signIn.social({ provider: "google" }),
-    onSuccess: () => {
-      router.push("/");
+    mutationFn: () => signIn.social({ 
+      provider: "google",
+      callbackURL: "/onboarding", // Redirect to onboarding for new users
+    }),
+    onError: (error) => {
+      console.error("Google sign-up error:", error);
     },
   });
 
@@ -49,11 +53,29 @@ export default function SignupPage() {
         username,
         password,
         name,
+        callbackURL: "/onboarding", // Redirect to onboarding after signup
       }),
-    onSuccess: () => {
-      router.push("/");
+    onSuccess: (data) => {
+      if (data.data?.user) {
+        router.push("/onboarding");
+      }
+    },
+    onError: (error) => {
+      console.error("Sign-up error:", error);
     },
   });
+
+  const handleSubmit = () => {
+    if (showFields) {
+      if (email && password && name && username) {
+        submit();
+      }
+    } else {
+      if (username) {
+        checkUsername({ username });
+      }
+    }
+  };
 
   return (
     <div className="min-h-screen max-w-4xl mx-auto py-8 flex-col flex">
@@ -67,13 +89,22 @@ export default function SignupPage() {
                 <input
                   type="text"
                   value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3 bg-gray-50/80 border-2 border-gray-200 rounded-md focus:border-primary focus:bg-white transition-all duration-300 outline-none text-gray-900 placeholder-gray-500"
+                  onChange={(e) => {
+                    setUsername(e.target.value);
+                    setUsernameError(false);
+                  }}
+                  className={`w-full pl-12 pr-4 py-3 bg-gray-50/80 border-2 rounded-md focus:border-primary focus:bg-white transition-all duration-300 outline-none text-gray-900 placeholder-gray-500 ${
+                    usernameError ? 'border-red-500' : 'border-gray-200'
+                  }`}
                   placeholder="Enter your tagxi username"
                   disabled={showFields || checkingUsername}
                 />
               </div>
+              {usernameError && (
+                <p className="text-red-500 text-sm">Username is already taken</p>
+              )}
             </div>
+            
             {showFields && (
               <>
                 <div className="space-y-2">
@@ -111,6 +142,7 @@ export default function SignupPage() {
                       placeholder="Enter your password"
                     />
                     <button
+                      type="button"
                       onClick={() => setShowPassword(!showPassword)}
                       className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
                     >
@@ -128,16 +160,11 @@ export default function SignupPage() {
             <Button
               size="lg"
               className="w-full text-lg mt-4"
-              onClick={() => {
-                if (showFields) {
-                  submit();
-                } else {
-                  checkUsername({ username });
-                }
-              }}
+              onClick={handleSubmit}
               isLoading={checkingUsername || isPending}
+              disabled={!username || (showFields && (!email || !password || !name))}
             >
-              Sign up
+              {showFields ? "Sign up" : "Continue"}
             </Button>
           </div>
 
@@ -150,6 +177,7 @@ export default function SignupPage() {
           <Button
             className="w-full flex items-center justify-center py-3 px-4 bg-white/80 rounded-md border-black shadow-none hover:bg-white/70"
             onClick={() => continueWithGoogle()}
+            isLoading={googlePending}
           >
             <Image
               src="/google.svg"

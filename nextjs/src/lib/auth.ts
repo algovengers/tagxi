@@ -24,12 +24,12 @@ export const auth = betterAuth({
     google: {
       clientId: process.env.GOOGLE_CLIENT_ID as string,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
-      redirectURI:`${(process.env.NEXT_PUBLIC_APP_URL as string)}/api/auth/callback/google`
+      redirectURI: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/callback/google`,
     },
   },
   plugins: [username(), nextCookies()],
   // @team -> make sure to add the site url and other services url here
-  trustedOrigins:[process.env.CHROME_EXTENSION_URL as string],
+  trustedOrigins: [process.env.CHROME_EXTENSION_URL as string],
   hooks: {
     after: createAuthMiddleware(async (ctx) => {
       // Handle user registration (both email/password and social)
@@ -46,5 +46,17 @@ export const auth = betterAuth({
         }
       }
     }),
+  },
+  // Add session configuration
+  session: {
+    expiresIn: 60 * 60 * 24 * 7, // 7 days
+    updateAge: 60 * 60 * 24, // 24 hours
+  },
+  // Add redirect configuration
+  callbacks: {
+    redirect: {
+      signIn: "/home",
+      signUp: "/onboarding",
+    },
   },
 });
