@@ -159,6 +159,32 @@ export const friendTable = pgTable(
   (table) => [primaryKey({ columns: [table.userId1, table.userId2] })]
 );
 
+export const settings = pgTable("settings", {
+  id: text("id").primaryKey().$defaultFn(createId),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  markerColor: text("marker_color").notNull().default("#FF0000"),
+  extensionSettings: jsonb("extension_settings")
+    .$type<{
+      tag_color: string;
+    }>()
+    .notNull()
+    .default({
+      tag_color: "#ffb988", // here multiple settings can be added
+    }),
+  blockedWebsites: jsonb("blocked_websites")
+    .$type<string[]>()
+    .notNull()
+    .default([]),
+  createdAt: timestamp("created_at")
+    .$defaultFn(() => new Date())
+    .notNull(),
+  updatedAt: timestamp("updated_at")
+    .$defaultFn(() => new Date())
+    .notNull(),
+});
+
 export const userRelations = relations(user, ({ many, one }) => ({
   sessions: many(session),
   account: one(account),
