@@ -1,5 +1,5 @@
-import { db } from "@tagxi/db";
-import { settings, eq } from "@tagxi/db/src/schema";
+import { db, eq } from "@tagxi/db";
+import { settings } from "@tagxi/db/src/schema";
 
 export const createDefaultSettings = async (userId: string) => {
   try {

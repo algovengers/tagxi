@@ -1,5 +1,6 @@
 import { eq, and, or } from "drizzle-orm";
 import { db } from "../index";
+import { settings } from "@/schema";
 
 export const areFriends = async (userId1: string, userId2: string) => {
   const arr = [userId1, userId2];
@@ -58,5 +59,33 @@ export const activeFriendRequest = async (userId1: string, userId2: string) => {
   } catch (error) {
     console.error(error);
     return null;
+  }
+};
+
+export const getOrCreateSettings = async (userId: string) => {
+  try {
+    let userSettings = await db.query.settings.findFirst({
+      where: (settings) => eq(settings.userId, userId),
+    });
+
+    if (!userSettings) {
+      const newSettings = await db
+        .insert(settings)
+        .values({
+          userId: userId,
+          extensionSettings: {
+            tag_color: "#ffb988",
+          },
+          blockedWebsites: [],
+        })
+        .returning();
+
+      userSettings = newSettings[0];
+    }
+
+    return userSettings;
+  } catch (error) {
+    console.error("Error getting or creating settings:", error);
+    throw error;
   }
 };

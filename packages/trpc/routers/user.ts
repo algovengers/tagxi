@@ -39,7 +39,7 @@ export const userRouter = createTRPCRouter({
         });
       }
 
-      await db.update(userTable).set(input).where(eq(userTable.id, use r.id));
+      await db.update(userTable).set(input).where(eq(userTable.id, user.id));
 
       return {
         message: "User updated successfully",
