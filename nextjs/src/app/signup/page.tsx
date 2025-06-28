@@ -8,6 +8,7 @@ import { useTRPC } from "@/trpc/client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { createDefaultSettings } from "@/actions/settings";
 
 export default function SignupPage() {
   const [showFields, setShowFields] = useState(false);
@@ -33,8 +34,6 @@ export default function SignupPage() {
     })
   );
 
-  // const {} = useMutation({})
-
   const { mutate: continueWithGoogle, isPending: googlePending } = useMutation({
     mutationKey: ["continueWithGoogle"],
     mutationFn: () => signIn.social({ provider: "google" }),
@@ -45,13 +44,35 @@ export default function SignupPage() {
 
   const { mutate: submit, isPending } = useMutation({
     mutationKey: ["signUp"],
-    mutationFn: () =>
-      signUp.email({
+    mutationFn: async () => {
+      const result = await signUp.email({
         email,
         username,
         password,
         name,
-      }),
+      });
+      
+      // Create default settings after successful signup
+      if (result.data?.user?.id) {
+        try {
+          await fetch('/api/settings', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              userId: result.data.user.id,
+            }),
+            credentials: 'include',
+          });
+        } catch (error) {
+          console.error('Error creating default settings:', error);
+          // Don't fail the signup process
+        }
+      }
+      
+      return result;
+    },
     onSuccess: () => {
       router.push("/");
     },
@@ -130,7 +151,13 @@ export default function SignupPage() {
             <Button
               size="lg"
               className="w-full text-lg mt-4"
-              onClick={() => checkUsername({ username })}
+              onClick={() => {
+                if (showFields) {
+                  submit();
+                } else {
+                  checkUsername({ username });
+                }
+              }}
               isLoading={checkingUsername || isPending}
             >
               Sign up

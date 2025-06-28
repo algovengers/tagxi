@@ -7,7 +7,8 @@ import {
 import { db } from "@/db";
 import { eq } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
-import { user as userTable, settings } from "@/db/schema";
+import { user as userTable } from "@/db/schema";
+import { createDefaultSettings } from "@/actions/settings";
 
 export const usernameRouter = createTRPCRouter({
   checkUsername: baseProcedure
@@ -49,23 +50,10 @@ export const userRouter = createTRPCRouter({
       await db.transaction(async (tx) => {
         // Update user
         await tx.update(userTable).set(input).where(eq(userTable.id, user.id));
-
-        // Check if settings exist, if not create them
-        const existingSettings = await tx.query.settings.findFirst({
-          where: (settings) => eq(settings.userId, user.id),
-        });
-
-        if (!existingSettings) {
-          await tx.insert(settings).values({
-            userId: user.id,
-            markerColor: "#FF0000",
-            extensionSettings: {
-              tag_color: "#ffb988",
-            },
-            blockedWebsites: [],
-          });
-        }
       });
+
+      // Create default settings after user update (outside transaction to avoid conflicts)
+      await createDefaultSettings(user.id);
 
       return {
         message: "User updated successfully",

@@ -3,31 +3,12 @@ import { withAuth } from "../utils";
 import { db } from "@/db";
 import { settings } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { getOrCreateSettings, createDefaultSettings } from "@/actions/settings";
 
 // Get user settings
 export const GET = withAuth(async (request, session) => {
   try {
-    let userSettings = await db.query.settings.findFirst({
-      where: (settings) => eq(settings.userId, session?.user.id as string),
-    });
-
-    // Create default settings if none exist
-    if (!userSettings) {
-      const newSettings = await db
-        .insert(settings)
-        .values({
-          userId: session?.user.id as string,
-          markerColor: "#FF0000",
-          extensionSettings: {
-            tag_color: "#ffb988",
-          },
-          blockedWebsites: [],
-        })
-        .returning();
-      
-      userSettings = newSettings[0];
-    }
-
+    const userSettings = await getOrCreateSettings(session?.user.id as string);
     return NextResponse.json(userSettings);
   } catch (error) {
     console.error("Error fetching settings:", error);
@@ -37,6 +18,31 @@ export const GET = withAuth(async (request, session) => {
     );
   }
 });
+
+// Create default settings for a user (used during signup)
+export const POST = async (request: Request) => {
+  try {
+    const body = await request.json();
+    const { userId } = body;
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: "User ID is required" },
+        { status: 400 }
+      );
+    }
+
+    await createDefaultSettings(userId);
+    
+    return NextResponse.json({ message: "Settings created successfully" });
+  } catch (error) {
+    console.error("Error creating settings:", error);
+    return NextResponse.json(
+      { error: "Failed to create settings" },
+      { status: 500 }
+    );
+  }
+};
 
 // Update user settings
 export const PUT = withAuth(async (request, session) => {

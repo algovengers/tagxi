@@ -3,31 +3,11 @@ import { createTRPCRouter, protectedProcedure } from "../init";
 import { db } from "@/db";
 import { eq } from "drizzle-orm";
 import { settings } from "@/db/schema";
+import { getOrCreateSettings } from "@/actions/settings";
 
 export const settingsRouter = createTRPCRouter({
   getSettings: protectedProcedure.query(async ({ ctx }) => {
-    let userSettings = await db.query.settings.findFirst({
-      where: (settings) => eq(settings.userId, ctx.auth.user.id),
-    });
-
-    // Create default settings if none exist
-    if (!userSettings) {
-      const newSettings = await db
-        .insert(settings)
-        .values({
-          userId: ctx.auth.user.id,
-          markerColor: "#FF0000",
-          extensionSettings: {
-            tag_color: "#ffb988",
-          },
-          blockedWebsites: [],
-        })
-        .returning();
-      
-      userSettings = newSettings[0];
-    }
-
-    return userSettings;
+    return await getOrCreateSettings(ctx.auth.user.id);
   }),
 
   updateSettings: protectedProcedure
