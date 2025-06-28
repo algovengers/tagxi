@@ -23,15 +23,11 @@ export const GET = withAuth(async (request, session) => {
 export const PUT = withAuth(async (request, session) => {
   try {
     const body = await request.json();
-    const { markerColor, extensionSettings, blockedWebsites } = body;
+    const { extensionSettings, blockedWebsites } = body;
 
     const updateData: any = {
       updatedAt: new Date(),
     };
-
-    if (markerColor) {
-      updateData.markerColor = markerColor;
-    }
 
     if (extensionSettings) {
       updateData.extensionSettings = extensionSettings;

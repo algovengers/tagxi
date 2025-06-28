@@ -13,7 +13,6 @@ export const settingsRouter = createTRPCRouter({
   updateSettings: protectedProcedure
     .input(
       z.object({
-        markerColor: z.string().optional(),
         extensionSettings: z
           .object({
             tag_color: z.string(),
@@ -26,10 +25,6 @@ export const settingsRouter = createTRPCRouter({
       const updateData: any = {
         updatedAt: new Date(),
       };
-
-      if (input.markerColor) {
-        updateData.markerColor = input.markerColor;
-      }
 
       if (input.extensionSettings) {
         updateData.extensionSettings = input.extensionSettings;

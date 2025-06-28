@@ -10,7 +10,6 @@ import { useTRPC } from "@/trpc/client";
 import { useMutation, useQuery } from "@tanstack/react-query";
 
 export default function ExtensionSettings() {
-  const [markerColor, setMarkerColor] = useState("#FF0000");
   const [tagColor, setTagColor] = useState("#ffb988");
   const [newWebsite, setNewWebsite] = useState("");
   const [blockedWebsites, setBlockedWebsites] = useState<string[]>([]);
@@ -36,7 +35,6 @@ export default function ExtensionSettings() {
   // Load settings when data is available
   useEffect(() => {
     if (settings) {
-      setMarkerColor(settings.markerColor);
       setTagColor(settings.extensionSettings.tag_color);
       setBlockedWebsites(settings.blockedWebsites);
     }
@@ -45,18 +43,15 @@ export default function ExtensionSettings() {
   // Track changes
   useEffect(() => {
     if (settings) {
-      const hasColorChanges = 
-        markerColor !== settings.markerColor || 
-        tagColor !== settings.extensionSettings.tag_color;
+      const hasColorChanges = tagColor !== settings.extensionSettings.tag_color;
       const hasWebsiteChanges = 
         JSON.stringify(blockedWebsites) !== JSON.stringify(settings.blockedWebsites);
       setHasChanges(hasColorChanges || hasWebsiteChanges);
     }
-  }, [markerColor, tagColor, blockedWebsites, settings]);
+  }, [tagColor, blockedWebsites, settings]);
 
   const handleSaveSettings = () => {
     updateSettings({
-      markerColor,
       extensionSettings: {
         tag_color: tagColor,
       },
@@ -96,53 +91,12 @@ export default function ExtensionSettings() {
         </div>
       </div>
 
-      {/* Marker Color Settings */}
-      <Card className="shadow-sm border-gray-200">
-        <CardHeader className="pb-4">
-          <CardTitle className="text-xl text-gray-900">Marker Color</CardTitle>
-          <CardDescription className="text-gray-600">
-            Choose the color for highlighting tagged content on websites.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-3">
-              <label htmlFor="marker-color" className="text-sm font-medium text-gray-700">
-                Color:
-              </label>
-              <div className="relative">
-                <input
-                  id="marker-color"
-                  type="color"
-                  value={markerColor}
-                  onChange={(e) => setMarkerColor(e.target.value)}
-                  className="w-12 h-10 rounded-lg border-2 border-gray-300 cursor-pointer hover:border-gray-400 transition-colors"
-                />
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="text-sm font-medium text-gray-700">Preview:</span>
-              <div
-                className="px-3 py-2 rounded-md text-sm font-medium border"
-                style={{ 
-                  backgroundColor: markerColor, 
-                  color: "#000",
-                  borderColor: markerColor
-                }}
-              >
-                Tagged text example
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Tag Color Settings */}
       <Card className="shadow-sm border-gray-200">
         <CardHeader className="pb-4">
-          <CardTitle className="text-xl text-gray-900">Tag Button Color</CardTitle>
+          <CardTitle className="text-xl text-gray-900">Tag Color</CardTitle>
           <CardDescription className="text-gray-600">
-            Customize the appearance of the tag button that appears when you select text.
+            Choose the color for highlighting tagged content on websites.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -164,13 +118,14 @@ export default function ExtensionSettings() {
             <div className="flex items-center gap-3">
               <span className="text-sm font-medium text-gray-700">Preview:</span>
               <div
-                className="px-4 py-2 rounded-full text-sm font-medium text-white shadow-sm border"
+                className="px-3 py-2 rounded-md text-sm font-medium border"
                 style={{ 
-                  backgroundColor: tagColor,
+                  backgroundColor: tagColor, 
+                  color: "#000",
                   borderColor: tagColor
                 }}
               >
-                🔖 Tag
+                Tagged text example
               </div>
             </div>
           </div>

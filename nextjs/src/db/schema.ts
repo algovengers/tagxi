@@ -164,14 +164,13 @@ export const settings = pgTable("settings", {
   userId: text("user_id")
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),
-  markerColor: text("marker_color").notNull().default("#FF0000"),
   extensionSettings: jsonb("extension_settings")
     .$type<{
       tag_color: string;
     }>()
     .notNull()
     .default({
-      tag_color: "#ffb988", // here multiple settings can be added
+      tag_color: "#ffb988", // Default tag color
     }),
   blockedWebsites: jsonb("blocked_websites")
     .$type<string[]>()

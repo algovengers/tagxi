@@ -12,7 +12,6 @@ export const createDefaultSettings = async (userId: string) => {
     if (!existingSettings) {
       await db.insert(settings).values({
         userId: userId,
-        markerColor: "#FF0000",
         extensionSettings: {
           tag_color: "#ffb988",
         },
@@ -37,7 +36,6 @@ export const getOrCreateSettings = async (userId: string) => {
         .insert(settings)
         .values({
           userId: userId,
-          markerColor: "#FF0000",
           extensionSettings: {
             tag_color: "#ffb988",
           },
