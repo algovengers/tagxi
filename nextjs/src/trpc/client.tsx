@@ -24,7 +24,7 @@ function getQueryClient() {
 function getUrl() {
   const base = (() => {
     if (typeof window !== "undefined") return "";
-    return process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    return process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000";
   })();
   return `${base}/api/trpc`;
 }

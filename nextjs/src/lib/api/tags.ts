@@ -27,8 +27,8 @@ export interface GetTagsParams {
   site?: string;
 }
 
-// API Base URL - adjust this for your environment
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+// API Base URL - use environment variable
+const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000';
 
 // Helper function to handle API responses
 async function handleResponse<T>(response: Response): Promise<T> {
@@ -127,4 +127,4 @@ export const tagsAPI = {
   getTagsBySiteAndUsername,
 };
 
-export default tagsAPI; 
+export default tagsAPI;
