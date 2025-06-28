@@ -1,9 +1,20 @@
 import type { PlasmoMessaging } from "@plasmohq/messaging"
+
 import { saveTag } from "~lib/api"
+import { HTTPError } from "~lib/error"
 
 const handler: PlasmoMessaging.MessageHandler = async (req, res) => {
   try {
-    const { url, selection, tag, timestamp, startContainerXPath, endContainerXPath, startOffset, endOffset } = req.body as {
+    const {
+      url,
+      selection,
+      tag,
+      timestamp,
+      startContainerXPath,
+      endContainerXPath,
+      startOffset,
+      endOffset
+    } = req.body as {
       url: string
       selection: string
       tag: string
@@ -37,21 +48,15 @@ const handler: PlasmoMessaging.MessageHandler = async (req, res) => {
       message: "Tag saved successfully"
     })
 
-    // // Optionally show a notification
-    // chrome.notifications.create({
-    //   type: "basic",
-    //   iconUrl: "assets/icon.png",
-    //   title: "TagXi",
-    //   message: `Tag "${tag}" saved successfully`
-    // })
-
   } catch (error) {
     console.error("Error in save-tag handler:", error)
-    
-    res.send({ 
-      success: false, 
+
+    res.send({
+      success: false,
       error: error.message,
-      message: "Failed to save tag"
+      message: "Failed to save tag",
+      authenticationRequired:
+        error instanceof HTTPError ? [400, 401].includes(error.code) : false
     })
   }
 }

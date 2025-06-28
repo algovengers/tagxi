@@ -1,11 +1,14 @@
 import cssText from "data-text:~style.css"
 import type { PlasmoCreateShadowRoot } from "plasmo"
 import React, { useCallback, useEffect, useRef, useState } from "react"
+import { createRoot } from "react-dom/client"
 
 import { sendToBackground } from "@plasmohq/messaging"
 
 import TagButton from "~components/WebComponents/TagButton"
 import TagInput from "~components/WebComponents/TagInput"
+import { showToast, ToastManager } from "~components/WebComponents/Toast"
+import { IGNORE_LIST } from "~constants"
 import { getXPathForElement, selectAndHighlightElement } from "~lib/xpath/xpath"
 
 /**
@@ -22,13 +25,14 @@ import { getXPathForElement, selectAndHighlightElement } from "~lib/xpath/xpath"
 
 // // Export a function to create a shadow host
 export const getShadowHostId = () => "tagxi-shadow-host"
+
+// keeping the shadow dom open to attach elements like toast
+export const createShadowRoot: PlasmoCreateShadowRoot = (shadowHost) =>
+  shadowHost.attachShadow({ mode: "open" })
+
 // /**
 //  * Plasmo specific function for content script ui to apply tailwind
 //  */
-
-export const createShadowRoot: PlasmoCreateShadowRoot = (shadowHost) =>
-  shadowHost.attachShadow({ mode: "closed" })
-
 export const getStyle = () => {
   const style = document.createElement("style")
   style.textContent = cssText.replaceAll(":root", ":host(plasmo-csui)")
@@ -100,6 +104,11 @@ const TagxiContentScript = () => {
 
   const handleInputKeyDown = useCallback(
     async (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (
+        IGNORE_LIST.filter((IGNORE) => window.location.href.startsWith(IGNORE))
+          .length
+      )
+        return
       if (e.key === "Enter") {
         const value = e.currentTarget.value
         if (!value || isLoading) return
@@ -145,14 +154,13 @@ const TagxiContentScript = () => {
                 endOffset as number
               )
             }
+            showToast("success", "Tag saved")
             resetSelection()
+          } else if (!response.success && response.authenticationRequired) {
+            showToast("warning", "Please sign in to load and save tags")
           } else {
-            console.error("Failed to save tag:", response.message)
-            // You could show an error message to the user here
+            showToast("danger", "Failed to save tags")
           }
-        } catch (error) {
-          console.error("Error saving tag:", error)
-          // You could show an error message to the user here
         } finally {
           setIsLoading(false)
         }
@@ -161,13 +169,24 @@ const TagxiContentScript = () => {
     []
   )
 
-  const handleEspaceKey = (e: KeyboardEvent) => {
+  const handleKeyboardInputs = (e: KeyboardEvent) => {
     if (e.key === "Escape") {
       resetSelection()
+    } else if (e.key === "Enter") {
+      console.log({ showIcon })
+      setShowIcon((icon) => {
+        if (icon) setShowInput(true)
+        return false
+      })
     }
   }
 
   const loadExistingTags = async () => {
+    if (
+      IGNORE_LIST.filter((IGNORE) => window.location.href.startsWith(IGNORE))
+        .length
+    )
+      return
     try {
       const response = await sendToBackground({
         name: "get-tag",
@@ -193,12 +212,18 @@ const TagxiContentScript = () => {
               selectAndHighlightElement(end_tag_xpath, 0, end_tag_offset)
             }
           } catch (error) {
+            console.log("not aload")
+            showToast("danger", "Error loading existing tags")
             // TODO: maybe showing our saved page kind of internet archive with a toast
           }
         })
+      } else if (!response.success && response.authenticationRequired) {
+        showToast("warning", "Please sign in to load and save tags")
+      } else {
+        showToast("danger", "Error loading existing tags")
       }
     } catch (error) {
-      console.error("Error loading existing tags:", error)
+      showToast("danger", "Error loading existing tags")
     }
   }
 
@@ -212,14 +237,24 @@ const TagxiContentScript = () => {
   }
 
   useEffect(() => {
+    const shadowRoot = document.getElementById(getShadowHostId())?.shadowRoot
+    if (shadowRoot) {
+      const toastContainer = document.createElement("div")
+      shadowRoot.appendChild(toastContainer)
+      const root = createRoot(toastContainer)
+      root.render(<ToastManager />)
+    }
+  }, [])
+
+  useEffect(() => {
     loadExistingTags()
     document.addEventListener("mouseup", handleMouseUp)
     document.addEventListener("scroll", removeTagAndInputOnScroll)
-    document.addEventListener("keydown", handleEspaceKey)
+    document.addEventListener("keydown", handleKeyboardInputs)
     return () => {
       document.removeEventListener("mouseup", handleMouseUp)
       document.addEventListener("scroll", removeTagAndInputOnScroll)
-      document.addEventListener("keydown", handleEspaceKey)
+      document.addEventListener("keydown", handleKeyboardInputs)
     }
   }, [])
 

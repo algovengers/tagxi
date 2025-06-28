@@ -1,5 +1,7 @@
 import type { PlasmoMessaging } from "@plasmohq/messaging"
+
 import { getTagsBySite } from "~lib/api"
+import { HTTPError } from "~lib/error"
 
 const handler: PlasmoMessaging.MessageHandler = async (req, res) => {
   try {
@@ -9,20 +11,19 @@ const handler: PlasmoMessaging.MessageHandler = async (req, res) => {
 
     // Use the API utility to get tags by site
     const tags = await getTagsBySite(url)
-    
+
     res.send({
       success: true,
       data: tags,
       message: "Tags retrieved successfully"
     })
-
   } catch (error) {
-    console.error("Error in get-tag handler:", error)
-    
-    res.send({ 
-      success: false, 
+    res.send({
+      success: false,
       error: error.message,
-      message: "Failed to fetch tags"
+      message: "Failed to fetch tags",
+      authenticationRequired:
+        error instanceof HTTPError ? [400, 401].includes(error.code) : false
     })
   }
 }
