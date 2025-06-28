@@ -12,6 +12,7 @@ import { LogOut, Settings, User } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { authClient } from "@/lib/auth-client";
 import { User as BetterAuthUser } from "better-auth";
+import Link from "next/link";
 
 export default function HeaderDropdown({
   children,
@@ -49,10 +50,12 @@ export default function HeaderDropdown({
           <User />
           Profile
         </DropdownMenuItem>
-        <DropdownMenuItem className=" hover:bg-gray-100 cursor-pointer flex flex-row gap-1 items-center">
-          <Settings />
-          Settings
-        </DropdownMenuItem>
+        <Link href="/settings">
+          <DropdownMenuItem className=" hover:bg-gray-100 cursor-pointer flex flex-row gap-1 items-center">
+            <Settings />
+            Settings
+          </DropdownMenuItem>
+        </Link>
         <DropdownMenuItem
           className="hover:bg-gray-100 cursor-pointer flex flex-row gap-1 items-center"
           onClick={onClick}
