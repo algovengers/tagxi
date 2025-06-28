@@ -39,7 +39,7 @@ export default function SignupPage() {
     mutationKey: ["continueWithGoogle"],
     mutationFn: () => signIn.social({ provider: "google" }),
     onSuccess: () => {
-      router.push("/");
+      router.push("/onboarding");
     },
   });
 
@@ -146,6 +146,7 @@ export default function SignupPage() {
           <Button
             className="w-full flex items-center justify-center py-3 px-4 bg-white/80 rounded-md border-black shadow-none hover:bg-white/70"
             onClick={() => continueWithGoogle()}
+            isLoading={googlePending}
           >
             <Image
               src="/google.svg"

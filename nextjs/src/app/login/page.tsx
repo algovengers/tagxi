@@ -17,11 +17,6 @@ export default function LoginPage() {
   //   const [isLoading, setIsLoading] = useState(false);
   const { signUp, signIn } = authClient;
   const router = useRouter();
-  const {} = useQuery(
-    trpc.hello.queryOptions({
-      text: "Hello",
-    })
-  );
   const { mutate: login, isPending } = useMutation({
     mutationKey: ["login"],
     mutationFn: async () => {},
@@ -31,7 +26,7 @@ export default function LoginPage() {
     mutationKey: ["continueWithGoogle"],
     mutationFn: () => signIn.social({ provider: "google" }),
     onSuccess: () => {
-      router.push("/");
+      router.push("/onboarding");
     },
   });
 
@@ -96,6 +91,7 @@ export default function LoginPage() {
           <Button
             className="w-full flex items-center justify-center py-3 px-4 bg-white/80 rounded-md border-black shadow-none hover:bg-white/70 cursor-pointer"
             onClick={() => continueWithGoogle()}
+            isLoading={googlePending}
           >
             <Image
               src="/google.svg"

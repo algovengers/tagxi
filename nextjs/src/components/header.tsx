@@ -6,6 +6,7 @@ import Image from "next/image";
 import { Bell } from "lucide-react";
 import HeaderDropdown from "./header-dropdown";
 import type { User } from "@/db/types";
+import SearchBar from "./search-bar";
 export default async function Header() {
   const header = await headers();
   const session = await auth.api.getSession({
@@ -17,8 +18,9 @@ export default async function Header() {
 
   return (
     <div className="w-full p-4 flex flex-row justify-between bg-white items-center">
-      <Logo  />
-      <Input placeholder="Search" className="max-w-xl" />
+      <Logo />
+      <SearchBar />
+      {/* <Input placeholder="Search" className="max-w-xl" /> */}
       <div className="flex flex-row gap-8 items-center">
         <Bell size={20} />
         <div className="flex flex-row gap-2 items-center">
