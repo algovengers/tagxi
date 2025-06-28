@@ -33,12 +33,12 @@ const Hero: React.FC = () => {
         </p>
 
         <div className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-6 relative z-40">
-          <button className="group bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white px-8 py-4 rounded-full text-lg font-semibold transition-all duration-300 hover:scale-105 hover:shadow-xl flex items-center space-x-2 shadow-lg">
+          <button className="group bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white px-8 py-4 rounded-full text-lg font-semibold transition-all duration-300 hover:shadow-xl flex items-center space-x-2 shadow-lg">
             <span>Start Tagging now</span>
             <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-200" />
           </button>
 
-          <button className="group border-2 border-gray-300 hover:border-orange-500 bg-white/80 backdrop-blur-sm text-gray-700 hover:text-orange-500 px-8 py-4 rounded-full text-lg font-semibold transition-all duration-300 hover:scale-105 hover:shadow-lg flex items-center space-x-2">
+          <button className="group border-2 border-gray-300 hover:border-orange-500 bg-white/80 backdrop-blur-sm text-gray-700 hover:text-orange-500 px-8 py-4 rounded-full text-lg font-semibold transition-all duration-300 hover:shadow-lg flex items-center space-x-2">
             <Play className="w-5 h-5" />
             <span>Watch Demo</span>
           </button>
