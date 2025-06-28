@@ -5,7 +5,6 @@ import { username } from "better-auth/plugins";
 import { account, session, user, verification } from "@tagxi/db/src/schema";
 import { nextCookies } from "better-auth/next-js";
 
-console.log(process.env.NEXT_PUBLIC_APP_URL)
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
     provider: "pg",

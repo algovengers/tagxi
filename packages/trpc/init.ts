@@ -1,15 +1,30 @@
-import { auth } from "@/lib/auth";
 import { initTRPC, TRPCError } from "@trpc/server";
 
+interface Session {
+  session: {
+    id: string;
+    token: string;
+    userId: string;
+    expiresAt: Date;
+    createdAt: Date;
+    updatedAt: Date;
+    ipAddress?: string | null | undefined;
+    userAgent?: string | null | undefined;
+  };
+  user: {
+    username?: string | null | undefined;
+  };
+}
+
 export interface TRPCContext {
-  headers?: Headers;
+  session?: Session | null;
 }
 
 export const createTRPCContext = async (opts: {
-  headers?: () => Promise<Headers>;
+  session?: Session | null;
 }): Promise<TRPCContext> => {
-  const data = await opts.headers?.();
-  return { headers: data };
+  // const data = await opts.headers?.();
+  return { session: opts.session };
 };
 
 const t = initTRPC.context<TRPCContext>().create({
@@ -19,11 +34,11 @@ const t = initTRPC.context<TRPCContext>().create({
 export const createTRPCRouter = t.router;
 export const baseProcedure = t.procedure;
 
-const getSession = async (headers?: Headers) =>
-  await auth.api.getSession({ headers: headers || new Headers() });
+// const getSession = async (headers?: Headers) =>
+//   await auth.api.getSession({ headers: headers || new Headers() });
 
 export const protectedProcedure = baseProcedure.use(async ({ ctx, next }) => {
-  const session = await getSession(ctx.headers);
+  const session = ctx.session;
 
   if (!session) {
     throw new TRPCError({
@@ -43,7 +58,7 @@ export const protectedProcedure = baseProcedure.use(async ({ ctx, next }) => {
 });
 
 export const onboardingProcedure = baseProcedure.use(async ({ ctx, next }) => {
-  const session = await getSession(ctx.headers);
+  const session = ctx.session;
 
   if (!session) {
     throw new TRPCError({

@@ -1,5 +1,3 @@
-import Header from "@/components/header";
-import Logo from "@/components/logo";
 import { Button } from "@/components/ui/button";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
