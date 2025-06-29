@@ -1,5 +1,5 @@
 import { getXPathForElement } from "~lib/xpath/xpath"
-import { classifyContent, isTaggable } from "./classifier"
+import { classifyContent, isTaggable, fallbackClassifier } from "./classifier"
 
 export interface ScannableElement {
   element: Element
@@ -130,24 +130,36 @@ export async function scanPageForTaggableContent(): Promise<ScannableElement[]> 
   console.log(`📑 Found ${candidates.length} candidates for AI analysis`)
   
   const taggableElements: ScannableElement[] = []
+  let aiFailureCount = 0
   
   // Process candidates in batches to avoid overwhelming the model
-  const batchSize = 10
+  const batchSize = 5 // Reduced batch size for better performance
   for (let i = 0; i < candidates.length; i += batchSize) {
     const batch = candidates.slice(i, i + batchSize)
     
     await Promise.all(
       batch.map(async ({ element, text, xpath }) => {
         try {
-          const result = await classifyContent(text, [
-            "important information",
-            "notable content", 
-            "actionable item",
-            "key insight",
-            "skip"
-          ])
+          let result
           
-          if (isTaggable(result, 0.7)) {
+          try {
+            // Try AI classification first
+            result = await classifyContent(text, [
+              "important information",
+              "notable content", 
+              "actionable item",
+              "key insight",
+              "skip"
+            ])
+          } catch (aiError) {
+            console.warn(`AI classification failed for: ${text.slice(0, 30)}..., using fallback`)
+            aiFailureCount++
+            
+            // Use rule-based fallback
+            result = fallbackClassifier(text)
+          }
+          
+          if (isTaggable(result, 0.6)) { // Lowered threshold slightly
             taggableElements.push({
               element,
               text,
@@ -161,15 +173,19 @@ export async function scanPageForTaggableContent(): Promise<ScannableElement[]> 
             )
           }
         } catch (error) {
-          console.warn(`Failed to classify element: ${text.slice(0, 30)}...`, error)
+          console.warn(`Failed to process element: ${text.slice(0, 30)}...`, error)
         }
       })
     )
     
     // Small delay between batches to prevent blocking
     if (i + batchSize < candidates.length) {
-      await new Promise(resolve => setTimeout(resolve, 100))
+      await new Promise(resolve => setTimeout(resolve, 200))
     }
+  }
+  
+  if (aiFailureCount > 0) {
+    console.log(`⚠️ AI failed for ${aiFailureCount} elements, used rule-based fallback`)
   }
   
   console.log(`🎯 Found ${taggableElements.length} taggable elements`)
@@ -194,14 +210,11 @@ export function highlightTaggableElements(
     element.setAttribute("data-tagxi-original-style", originalStyle)
     
     // Create a subtle highlight effect
-    // @ts-ignore
-    element.style.outline = `2px dashed ${tagColor}`
-    // @ts-ignore
-    element.style.outlineOffset = "2px"
-    // @ts-ignore
-    element.style.position = "relative"
-    // @ts-ignore
-    element.style.transition = "all 0.3s ease"
+    const elementStyle = element as HTMLElement
+    elementStyle.style.outline = `2px dashed ${tagColor}`
+    elementStyle.style.outlineOffset = "2px"
+    elementStyle.style.position = "relative"
+    elementStyle.style.transition = "all 0.3s ease"
     
     // Add a small indicator
     const indicator = document.createElement("div")

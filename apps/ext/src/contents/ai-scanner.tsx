@@ -34,6 +34,7 @@ const AIScannerContentScript = () => {
   const [settingsLoaded, setSettingsLoaded] = useState(false)
   const [tagColor, setTagColor] = useState("#ffb988")
   const [blockedWebsites, setBlockedWebsites] = useState<string[]>([])
+  const [aiAvailable, setAiAvailable] = useState(true)
 
   // Check if current site is blocked
   const isCurrentSiteBlocked = () => {
@@ -136,11 +137,19 @@ const AIScannerContentScript = () => {
     if (isScanning) return
     
     setIsScanning(true)
-    showToast("warning", "🤖 AI is analyzing the page...")
+    
+    if (!aiAvailable) {
+      showToast("warning", "🤖 AI is loading models for the first time...")
+    } else {
+      showToast("warning", "🤖 AI is analyzing the page...")
+    }
     
     try {
       // Scan the page for taggable content
       const taggableElements = await scanPageForTaggableContent()
+      
+      // Mark AI as available if we got here without errors
+      setAiAvailable(true)
       
       if (taggableElements.length === 0) {
         showToast("warning", "No important content found by AI")
@@ -158,7 +167,13 @@ const AIScannerContentScript = () => {
       
     } catch (error) {
       console.error("AI scan failed:", error)
-      showToast("danger", "AI scan failed. Please try again.")
+      
+      if (error.message.includes('local_files_only') || error.message.includes('not found locally')) {
+        showToast("danger", "AI models are downloading. Please try again in a moment.")
+        setAiAvailable(false)
+      } else {
+        showToast("danger", "AI scan failed. Using rule-based fallback.")
+      }
     } finally {
       setIsScanning(false)
     }
@@ -175,7 +190,9 @@ const AIScannerContentScript = () => {
       <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-[99999] bg-white border border-gray-300 rounded-lg px-4 py-2 shadow-lg">
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
-          <span className="text-sm font-medium text-gray-700">AI analyzing page...</span>
+          <span className="text-sm font-medium text-gray-700">
+            {!aiAvailable ? "AI downloading models..." : "AI analyzing page..."}
+          </span>
         </div>
       </div>
     )
