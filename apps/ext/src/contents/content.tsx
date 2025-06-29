@@ -49,6 +49,7 @@ const TagxiContentScript = () => {
   const [settingsLoaded, setSettingsLoaded] = useState(false)
   const [tagColor, setTagColor] = useState("#ffb988") // Default color
   const [blockedWebsites, setBlockedWebsites] = useState<string[]>([])
+  const [currentUsername, setCurrentUsername] = useState<string>("")
   const [lastScroll, setLastScroll] = useState({
     y: window.scrollY,
     x: window.scrollX
@@ -74,38 +75,43 @@ const TagxiContentScript = () => {
     })
   }
 
-  // Load user settings directly from API every time
+  // Load user settings and authentication info
   const loadSettings = async () => {
     try {
       console.log("🔧 Content Script: Loading user settings from API...")
-      const response = await sendToBackground({
-        name: "get-settings"
-      })
       
-      if (response.success && response.data) {
-        const settings = response.data
+      // Get both settings and auth info
+      const [settingsResponse, authResponse] = await Promise.all([
+        sendToBackground({ name: "get-settings" }),
+        sendToBackground({ name: "get-auth" })
+      ])
+      
+      // Handle settings
+      if (settingsResponse.success && settingsResponse.data) {
+        const settings = settingsResponse.data
         
-        // Update tag color
         if (settings.extensionSettings?.tag_color) {
           setTagColor(settings.extensionSettings.tag_color)
           console.log("✅ Content Script: Tag color loaded:", settings.extensionSettings.tag_color)
         }
         
-        // Update blocked websites
         if (settings.blockedWebsites) {
           setBlockedWebsites(settings.blockedWebsites)
           console.log("✅ Content Script: Blocked websites loaded:", settings.blockedWebsites)
         }
-        
-        setSettingsLoaded(true)
-        console.log("✅ Content Script: Settings loaded successfully from API")
-      } else {
-        console.warn("⚠️ Content Script: Failed to load settings, using defaults")
-        setSettingsLoaded(true) // Still mark as loaded to proceed
       }
+      
+      // Handle authentication
+      if (authResponse?.redirect?.data?.user?.username) {
+        setCurrentUsername(authResponse.redirect.data.user.username)
+        console.log("✅ Content Script: Current user loaded:", authResponse.redirect.data.user.username)
+      }
+      
+      setSettingsLoaded(true)
+      console.log("✅ Content Script: Settings and auth loaded successfully")
     } catch (error) {
       console.error("❌ Content Script: Error loading settings:", error)
-      setSettingsLoaded(true) // Mark as loaded to prevent blocking
+      setSettingsLoaded(true) // Still mark as loaded to prevent blocking
     }
   }
 
@@ -205,25 +211,30 @@ const TagxiContentScript = () => {
               startOffset,
               endOffset
             } = selectionRef.current
+            
+            // Highlight with current user as the tagger
             if (startContainerXPath === endContainerXPath) {
               selectAndHighlightElement(
                 startContainerXPath as string,
                 startOffset as number,
                 endOffset as number,
-                tagColor // Use user's preferred color
+                tagColor,
+                currentUsername // Pass current user as tagger
               )
             } else {
               selectAndHighlightElement(
                 startContainerXPath as string,
                 startOffset as number,
                 undefined,
-                tagColor
+                tagColor,
+                currentUsername
               )
               selectAndHighlightElement(
                 endContainerXPath as string,
                 0,
                 endOffset as number,
-                tagColor
+                tagColor,
+                currentUsername
               )
             }
             showToast("success", "Tag saved")
@@ -238,7 +249,7 @@ const TagxiContentScript = () => {
         }
       }
     },
-    [tagColor, blockedWebsites]
+    [tagColor, blockedWebsites, currentUsername]
   )
 
   const handleKeyboardInputs = (e: KeyboardEvent) => {
@@ -276,7 +287,7 @@ const TagxiContentScript = () => {
       if (response.success && response.data) {
         let successCount = 0
         
-        response.data.forEach(({ metadata }) => {
+        response.data.forEach(({ metadata, owner }) => {
           const {
             start_tag_offset,
             end_tag_xpath,
@@ -289,11 +300,12 @@ const TagxiContentScript = () => {
                 start_tag_xpath,
                 start_tag_offset,
                 end_tag_offset,
-                tagColor // Use user's preferred color
+                tagColor,
+                owner // Pass the owner as the tagger for hover tooltip
               )
             } else {
-              selectAndHighlightElement(start_tag_xpath, start_tag_offset, undefined, tagColor)
-              selectAndHighlightElement(end_tag_xpath, 0, end_tag_offset, tagColor)
+              selectAndHighlightElement(start_tag_xpath, start_tag_offset, undefined, tagColor, owner)
+              selectAndHighlightElement(end_tag_xpath, 0, end_tag_offset, tagColor, owner)
             }
             successCount++
           } catch (error) {
