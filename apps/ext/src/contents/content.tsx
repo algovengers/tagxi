@@ -266,6 +266,9 @@ const TagxiContentScript = () => {
         body: { url: window.location.href }
       })
       if (response.success && response.data) {
+        let successCount = 0
+        let errorCount = 0
+        
         response.data.forEach(({ metadata }) => {
           const {
             start_tag_offset,
@@ -285,18 +288,26 @@ const TagxiContentScript = () => {
               selectAndHighlightElement(start_tag_xpath, start_tag_offset, undefined, tagColor)
               selectAndHighlightElement(end_tag_xpath, 0, end_tag_offset, tagColor)
             }
+            successCount++
           } catch (error) {
-            console.log("not aload")
-            showToast("danger", "Error loading existing tags")
-            // TODO: maybe showing our saved page kind of internet archive with a toast
+            console.warn("Failed to highlight tag:", error, { metadata })
+            errorCount++
           }
         })
+        
+        if (successCount > 0) {
+          console.log(`Successfully loaded ${successCount} tags`)
+        }
+        if (errorCount > 0) {
+          console.warn(`Failed to load ${errorCount} tags (page content may have changed)`)
+        }
       } else if (!response.success && response.authenticationRequired) {
         showToast("warning", "Please sign in to load and save tags")
       } else {
         showToast("danger", "Error loading existing tags")
       }
     } catch (error) {
+      console.error("Error loading existing tags:", error)
       showToast("danger", "Error loading existing tags")
     }
   }
