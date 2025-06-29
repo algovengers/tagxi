@@ -5,7 +5,7 @@ import UserNotFound from "./components/user-not-found";
 import UserPage from "./components/user-page";
 import { areFriends } from "@/actions/friends";
 import { activeFriendRequest } from "@/actions/friendRequests";
-import { FriendRequest } from "@/db/types";
+import { FriendRequest } from "@tagxi/db";
 
 export default async function Page({
   params,

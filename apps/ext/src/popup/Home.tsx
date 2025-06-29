@@ -95,16 +95,14 @@ const Home: React.FC<HomeProps> = ({
         <span className="font-bold text-xl text-gray-800">TagXi</span>
 
         <div className="flex gap-2 items-center">
-          <button 
+          <button
             className="bg-white hover:bg-gray-100 rounded-full p-2 shadow-sm"
-            onClick={onNotificationClick}
-          >
+            onClick={onNotificationClick}>
             <BellIcon color="black" size={18} />
           </button>
-          <button 
+          <button
             className="bg-white hover:bg-gray-100 rounded-full p-2 shadow-sm"
-            onClick={onProfileClick}
-          >
+            onClick={onProfileClick}>
             <Avatar name="arnab" size={18} />
           </button>
         </div>
@@ -150,64 +148,23 @@ const Home: React.FC<HomeProps> = ({
         />
 
         <Stack>
-          {recentTags.length > 0 ? (
-            recentTags.map((tag) => (
-              <Card
-                key={tag.id}
-                className="w-24 cursor-pointer hover:bg-gray-100"
-              >
-                <Card.Header
-                  name={tag.by}
-                  title={getEllipsedText(tag.by, "MIDDLE")}
-                />
-                <Card.Body>{getEllipsedText(tag.content, "LAST")}</Card.Body>
-                <Card.Footer>{tag.time}</Card.Footer>
-              </Card>
-            ))
-          ) : (
-            // Show skeleton loading for tags
-            Array.from({ length: 3 }).map((_, index) => (
-              <SkeletonCard key={`tag-skeleton-${index}`} />
-            ))
-          )}
-        </Stack>
-      </div>
-
-      <div className="px-4 mt-6">
-        <Stack.Header
-          title="Memories"
-          action={
-            <button
-              onClick={handleMemoriesPageClick}
-              className="p-1 rounded-full hover:bg-gray-100">
-              <ChevronRight size={16} />
-            </button>
-          }
-        />
-
-        <Stack>
-          {collectibles.length > 0 ? (
-            collectibles.map((item) => (
-              <Card
-                key={item.id}
-                className="w-24 cursor-pointer hover:bg-gray-100"
-              >
-                <Card.ImageCover src={item.image} alt={item.name} />
-                <Card.Footer>
-                  <div className="flex items-center gap-1 mt-1">
-                    <p className="text-[10px] text-gray-600 truncate">
-                      {item.name}
-                    </p>
-                  </div>
-                </Card.Footer>
-              </Card>
-            ))
-          ) : (
-            // Show skeleton loading for collectibles
-            Array.from({ length: 3 }).map((_, index) => (
-              <SkeletonCollectibleCard key={`collectible-skeleton-${index}`} />
-            ))
-          )}
+          {recentTags.length > 0
+            ? recentTags.map((tag) => (
+                <Card
+                  key={tag.id}
+                  className="w-24 cursor-pointer hover:bg-gray-100">
+                  <Card.Header
+                    name={tag.by}
+                    title={getEllipsedText(tag.by, "MIDDLE")}
+                  />
+                  <Card.Body>{getEllipsedText(tag.content, "LAST")}</Card.Body>
+                  <Card.Footer>{tag.time}</Card.Footer>
+                </Card>
+              ))
+            : // Show skeleton loading for tags
+              Array.from({ length: 3 }).map((_, index) => (
+                <SkeletonCard key={`tag-skeleton-${index}`} />
+              ))}
         </Stack>
       </div>
     </div>

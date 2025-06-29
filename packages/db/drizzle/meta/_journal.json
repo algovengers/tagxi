@@ -15,6 +15,20 @@
       "when": 1751134757547,
       "tag": "0001_big_network",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1751220265361,
+      "tag": "0002_workable_norrin_radd",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1751224065266,
+      "tag": "0003_sloppy_peter_parker",
+      "breakpoints": true
     }
   ]
 }

@@ -87,6 +87,8 @@ export const tag = pgTable("tags", {
       end_tag_offset: number;
     }>()
     .notNull(),
+  seen: boolean().default(false).notNull(),
+  message: text("message"),
   createdAt: timestamp("created_at")
     .$defaultFn(() => new Date())
     .notNull(),
