@@ -55,6 +55,7 @@ const TagxiContentScript = () => {
     x: window.scrollX
   })
   const selectionRef = useRef<Record<string, string | number> | null>(null)
+  const settingsLoadedRef = useRef(false) // Prevent multiple loads
 
   // Check if current site is blocked
   const isCurrentSiteBlocked = () => {
@@ -75,10 +76,18 @@ const TagxiContentScript = () => {
     })
   }
 
-  // Load user settings and authentication info
+  // Load user settings and authentication info - ONLY ONCE
   const loadSettings = async () => {
+    // Prevent multiple simultaneous loads
+    if (settingsLoadedRef.current) {
+      console.log("⚠️ Content Script: Settings already loaded, skipping...")
+      return
+    }
+    
+    settingsLoadedRef.current = true
+    
     try {
-      console.log("🔧 Content Script: Loading user settings from API...")
+      console.log("🔧 Content Script: Loading user settings (one-time)...")
       
       // Get both settings and auth info
       const [settingsResponse, authResponse] = await Promise.all([
@@ -99,6 +108,8 @@ const TagxiContentScript = () => {
           setBlockedWebsites(settings.blockedWebsites)
           console.log("✅ Content Script: Blocked websites loaded:", settings.blockedWebsites)
         }
+        
+        console.log(`📦 Content Script: Settings source: ${settingsResponse.source || 'unknown'}`)
       }
       
       // Handle authentication
@@ -359,16 +370,15 @@ const TagxiContentScript = () => {
     }
   }, [])
 
-  // Initial setup - load settings first, then tags
+  // Initial setup - load settings ONLY ONCE
   useEffect(() => {
     const initializeExtension = async () => {
       console.log("🚀 Content Script: Initializing TagXi extension...")
       
-      // Step 1: Load settings directly from API
-      await loadSettings()
-      
-      // Step 2: Load existing tags (only after settings are loaded)
-      // This will be triggered by the settingsLoaded effect below
+      // Step 1: Load settings ONLY if not already loaded
+      if (!settingsLoadedRef.current) {
+        await loadSettings()
+      }
     }
     
     initializeExtension()
@@ -383,13 +393,13 @@ const TagxiContentScript = () => {
     }
   }, [handleMouseUp])
 
-  // Load existing tags when settings are loaded
+  // Load existing tags when settings are loaded - ONLY ONCE
   useEffect(() => {
-    if (settingsLoaded) {
+    if (settingsLoaded && !isCurrentSiteBlocked()) {
       console.log("⚙️ Content Script: Settings loaded, now loading existing tags...")
       loadExistingTags()
     }
-  }, [settingsLoaded, tagColor])
+  }, [settingsLoaded]) // Removed tagColor dependency to prevent reloading
 
   // Don't render anything if site is blocked
   if (isCurrentSiteBlocked()) {

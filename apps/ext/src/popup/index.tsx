@@ -44,7 +44,7 @@ const Popup = () => {
   })
 
   const checkAuthentication = async () => {
-    console.log("🔐 Popup: Checking authentication...")
+    console.log("🔐 Popup: Checking authentication (cached)...")
     try {
       const [tab] = await chrome.tabs.query({
         active: true,
@@ -63,7 +63,10 @@ const Popup = () => {
         name: "get-auth"
       })
 
-      console.log("✅ Popup: Authentication response:", response)
+      console.log("✅ Popup: Authentication response:", {
+        hasData: !!response?.redirect?.data,
+        source: response?.source || 'unknown'
+      })
 
       if (response?.redirect?.data) {
         setIsAuthenticated(true)

@@ -55,11 +55,16 @@ const AIScannerContentScript = () => {
     })
   }
 
-  // Load user settings directly from API every time
+  // Load user settings - ONLY ONCE with caching
   useEffect(() => {
+    let settingsLoaded = false
+    
     const loadSettings = async () => {
+      if (settingsLoaded) return // Prevent multiple loads
+      settingsLoaded = true
+      
       try {
-        console.log("🔧 AI Scanner: Loading user settings from API...")
+        console.log("🔧 AI Scanner: Loading user settings (cached)...")
         const response = await sendToBackground({
           name: "get-settings"
         })
@@ -78,7 +83,7 @@ const AIScannerContentScript = () => {
           }
           
           setSettingsLoaded(true)
-          console.log("✅ AI Scanner: Settings loaded successfully from API")
+          console.log(`📦 AI Scanner: Settings loaded from ${response.source || 'unknown'}`)
         } else {
           console.warn("⚠️ AI Scanner: Failed to load settings, using defaults")
           setSettingsLoaded(true)
@@ -90,7 +95,7 @@ const AIScannerContentScript = () => {
     }
     
     loadSettings()
-  }, [])
+  }, []) // Empty dependency array - load only once
 
   // Handle Ctrl+K keyboard shortcut
   useEffect(() => {
