@@ -14,27 +14,55 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const trpc = useTRPC();
-  //   const [isLoading, setIsLoading] = useState(false);
   const { signUp, signIn } = authClient;
   const router = useRouter();
   const { mutate: login, isPending } = useMutation({
     mutationKey: ["login"],
-    mutationFn: async () => {},
+    mutationFn: async () => {
+      const result = await signIn.email({
+        email,
+        password,
+      });
+      return result;
+    },
+    onSuccess: (data) => {
+      if (data.data?.user) {
+        // Check if user has completed onboarding
+        if (data.data.user.username) {
+          router.push("/home");
+        } else {
+          router.push("/onboarding");
+        }
+      }
+    },
+    onError: (error) => {
+      console.error("Login error:", error);
+    },
   });
 
   const { mutate: continueWithGoogle, isPending: googlePending } = useMutation({
     mutationKey: ["continueWithGoogle"],
-    mutationFn: () => signIn.social({ provider: "google" }),
-    onSuccess: () => {
-      router.push("/onboarding");
+    mutationFn: () => signIn.social({ 
+      provider: "google",
+      callbackURL: "/home", // Specify callback URL
+    }),
+    onError: (error) => {
+      console.error("Google sign-in error:", error);
     },
   });
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (email && password) {
+      login();
+    }
+  };
 
   return (
     <div className="min-h-screen max-w-4xl mx-auto py-8">
       <h1 className="text-center font-bold text-3xl">Tagxi</h1>
       <div className="relative z-10 w-full max-w-md mt-8 mx-auto">
-        <div>
+        <form onSubmit={handleLogin}>
           <div className="space-y-6">
             <div className="space-y-2">
               <div className="relative">
@@ -45,6 +73,7 @@ export default function LoginPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full pl-12 pr-4 py-3 bg-gray-50/80 border-2 border-gray-200 rounded-md focus:border-primary focus:bg-white transition-all duration-300 outline-none text-gray-900 placeholder-gray-500"
                   placeholder="Enter your email"
+                  required
                 />
               </div>
             </div>
@@ -58,8 +87,10 @@ export default function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full pl-12 pr-4 py-3 bg-white border-2 border-gray-200 rounded-md focus:border-primary focus:bg-white transition-all duration-300 outline-none text-gray-900 placeholder-gray-500"
                   placeholder="Enter your password"
+                  required
                 />
                 <button
+                  type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
                 >
@@ -73,20 +104,31 @@ export default function LoginPage() {
             </div>
 
             <div className="text-right">
-              <button className="text-sm text-purple-600 hover:text-purple-700 font-medium transition-colors">
+              <button 
+                type="button"
+                className="text-sm text-purple-600 hover:text-purple-700 font-medium transition-colors"
+              >
                 Forgot password?
               </button>
             </div>
-            <Button size="lg" className="w-full text-lg">
+            
+            <Button 
+              type="submit" 
+              size="lg" 
+              className="w-full text-lg"
+              isLoading={isPending}
+              disabled={!email || !password}
+            >
               Sign in
             </Button>
           </div>
+        </form>
 
-          <div className="my-8 flex items-center">
-            <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
-            <span className="px-4 text-sm text-gray-500">or continue with</span>
-            <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
-          </div>
+        <div className="my-8 flex items-center">
+          <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
+          <span className="px-4 text-sm text-gray-500">or continue with</span>
+          <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
+        </div>
 
           <Button
             className="w-full flex items-center justify-center py-3 px-4 bg-white/80 rounded-md border-black shadow-none hover:bg-white/70 cursor-pointer"
@@ -104,17 +146,16 @@ export default function LoginPage() {
             </span>
           </Button>
 
-          <div className="mt-8 text-center">
-            <p className="text-gray-600">
-              New to tagxi?{" "}
-              <Link
-                href="/signup"
-                className="text-purple-600 hover:text-purple-700 font-semibold transition-colors"
-              >
-                Sign up here
-              </Link>
-            </p>
-          </div>
+        <div className="mt-8 text-center">
+          <p className="text-gray-600">
+            New to tagxi?{" "}
+            <Link
+              href="/signup"
+              className="text-purple-600 hover:text-purple-700 font-semibold transition-colors"
+            >
+              Sign up here
+            </Link>
+          </p>
         </div>
       </div>
     </div>

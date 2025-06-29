@@ -4,10 +4,13 @@ import { usernameRouter, userRouter } from "./user";
 import { friendRequestRouter } from "./friendRequest";
 import { db, and, eq, like, ne, or, sql } from "@tagxi/db";
 import { friendTable, user as userTable } from "@tagxi/db/src/schema";
+import { settingsRouter } from "./settings";
+
 export const appRouter = createTRPCRouter({
   user: userRouter,
   username: usernameRouter,
   friendRequest: friendRequestRouter,
+  settings: settingsRouter,
   search: protectedProcedure
     .input(
       z.object({

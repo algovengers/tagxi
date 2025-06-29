@@ -191,6 +191,7 @@ export const userRelations = relations(user, ({ many, one }) => ({
   createdTags: many(tag),
   taggedAt: many(userTags),
   friends: many(friendTable),
+  settings: one(settings),
 }));
 
 export const sessionRelations = relations(session, ({ one }) => ({
@@ -233,6 +234,13 @@ export const friendRelations = relations(friendTable, ({ one }) => ({
   }),
   user2: one(user, {
     fields: [friendTable.userId2],
+    references: [user.id],
+  }),
+}));
+
+export const settingsRelations = relations(settings, ({ one }) => ({
+  user: one(user, {
+    fields: [settings.userId],
     references: [user.id],
   }),
 }));

@@ -13,6 +13,7 @@ interface Session {
   };
   user: {
     username?: string | null | undefined;
+    id: string
   };
 }
 
