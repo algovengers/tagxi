@@ -97,10 +97,9 @@ const TagxiContentScript = () => {
       console.log("🔧 Content Script: Loading user settings and friends (one-time)...")
       
       // Get settings, auth info, and friends
-      const [settingsResponse, authResponse, friendsResponse] = await Promise.all([
+      const [settingsResponse, authResponse] = await Promise.all([
         sendToBackground({ name: "get-settings" }),
-        sendToBackground({ name: "get-auth" }),
-        sendToBackground({ name: "get-friends", body: { query: "" } })
+        sendToBackground({ name: "get-auth" })
       ])
       
       // Handle settings
@@ -126,14 +125,8 @@ const TagxiContentScript = () => {
         console.log("✅ Content Script: Current user loaded:", authResponse.redirect.data.user.username)
       }
       
-      // Handle friends
-      if (friendsResponse.success && friendsResponse.data) {
-        setFriends(friendsResponse.data)
-        console.log("✅ Content Script: Friends loaded:", friendsResponse.data.length)
-      }
-      
       setSettingsLoaded(true)
-      console.log("✅ Content Script: Settings, auth, and friends loaded successfully")
+      console.log("✅ Content Script: Settings and auth loaded successfully")
     } catch (error) {
       console.error("❌ Content Script: Error loading settings:", error)
       setSettingsLoaded(true) // Still mark as loaded to prevent blocking
@@ -431,7 +424,7 @@ const TagxiContentScript = () => {
           position={iconPosition}
           onKeyDown={handleInputKeyDown}
           disabled={isLoading}
-          friends={friends} // Pass pre-loaded friends
+          friends={friends} // Pass pre-loaded friends (empty for now)
         />
       )}
     </>
