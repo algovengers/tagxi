@@ -13,7 +13,6 @@ export interface ScannableElement {
  * Enhanced XPath generator with better specificity
  */
 function getEnhancedXPath(element: Element): string {
-  // Use existing xpath function but with fallback
   try {
     return getXPathForElement(element as Node)
   } catch (error) {
@@ -99,13 +98,13 @@ export async function scanPageForTaggableContent(): Promise<ScannableElement[]> 
   
   // Select elements that might contain important content
   const selectors = [
-    "p", "h1", "h2", "h3", "h4", "h5", "h6",
-    "article", "section", "div[class*='content']",
-    "div[class*='article']", "div[class*='post']",
-    "blockquote", "pre", "code",
-    "li", "td", "th",
-    "img[alt]", "figure", "figcaption",
-    "a[href]", "button"
+    "h1", "h2", "h3", "h4", "h5", "h6", // Headers are usually important
+    "p", "article", "section", // Main content
+    "div[class*='content']", "div[class*='article']", "div[class*='post']",
+    "blockquote", "pre", "code", // Special content
+    "li", "td", "th", // List and table items
+    "img[alt]", "figure", "figcaption", // Images with descriptions
+    "a[href]", "button" // Interactive elements
   ]
   
   const elements = document.querySelectorAll(selectors.join(", "))
@@ -118,7 +117,7 @@ export async function scanPageForTaggableContent(): Promise<ScannableElement[]> 
     const text = getElementText(element)
     
     // Only process elements with meaningful text content
-    if (text.length >= 15 && text.length <= 500) {
+    if (text.length >= 10 && text.length <= 300) { // Adjusted for better performance
       candidates.push({
         element,
         text,
@@ -131,10 +130,11 @@ export async function scanPageForTaggableContent(): Promise<ScannableElement[]> 
   
   const taggableElements: ScannableElement[] = []
   let aiFailureCount = 0
+  let useAI = true
   
-  // Process candidates in batches to avoid overwhelming the model
-  const batchSize = 5 // Reduced batch size for better performance
-  for (let i = 0; i < candidates.length; i += batchSize) {
+  // Process candidates in smaller batches for better performance
+  const batchSize = 3 // Even smaller batch size
+  for (let i = 0; i < candidates.length && i < 30; i += batchSize) { // Limit total elements
     const batch = candidates.slice(i, i + batchSize)
     
     await Promise.all(
@@ -142,24 +142,22 @@ export async function scanPageForTaggableContent(): Promise<ScannableElement[]> 
         try {
           let result
           
-          try {
-            // Try AI classification first
-            result = await classifyContent(text, [
-              "important information",
-              "notable content", 
-              "actionable item",
-              "key insight",
-              "skip"
-            ])
-          } catch (aiError) {
-            console.warn(`AI classification failed for: ${text.slice(0, 30)}..., using fallback`)
-            aiFailureCount++
-            
+          if (useAI) {
+            try {
+              // Try AI classification first
+              result = await classifyContent(text)
+            } catch (aiError) {
+              console.warn(`AI classification failed, switching to fallback mode`)
+              aiFailureCount++
+              useAI = false // Disable AI for remaining elements
+              result = fallbackClassifier(text)
+            }
+          } else {
             // Use rule-based fallback
             result = fallbackClassifier(text)
           }
           
-          if (isTaggable(result, 0.6)) { // Lowered threshold slightly
+          if (isTaggable(result, 0.5)) { // Lower threshold for better results
             taggableElements.push({
               element,
               text,
@@ -178,14 +176,14 @@ export async function scanPageForTaggableContent(): Promise<ScannableElement[]> 
       })
     )
     
-    // Small delay between batches to prevent blocking
-    if (i + batchSize < candidates.length) {
-      await new Promise(resolve => setTimeout(resolve, 200))
+    // Longer delay between batches to prevent overwhelming
+    if (i + batchSize < candidates.length && i < 27) {
+      await new Promise(resolve => setTimeout(resolve, 300))
     }
   }
   
   if (aiFailureCount > 0) {
-    console.log(`⚠️ AI failed for ${aiFailureCount} elements, used rule-based fallback`)
+    console.log(`⚠️ AI failed, used rule-based fallback for remaining elements`)
   }
   
   console.log(`🎯 Found ${taggableElements.length} taggable elements`)

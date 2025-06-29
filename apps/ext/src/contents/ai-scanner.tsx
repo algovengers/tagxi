@@ -34,7 +34,7 @@ const AIScannerContentScript = () => {
   const [settingsLoaded, setSettingsLoaded] = useState(false)
   const [tagColor, setTagColor] = useState("#ffb988")
   const [blockedWebsites, setBlockedWebsites] = useState<string[]>([])
-  const [aiAvailable, setAiAvailable] = useState(true)
+  const [aiStatus, setAiStatus] = useState<'loading' | 'ready' | 'fallback'>('loading')
 
   // Check if current site is blocked
   const isCurrentSiteBlocked = () => {
@@ -137,22 +137,19 @@ const AIScannerContentScript = () => {
     if (isScanning) return
     
     setIsScanning(true)
+    setAiStatus('loading')
     
-    if (!aiAvailable) {
-      showToast("warning", "🤖 AI is loading models for the first time...")
-    } else {
-      showToast("warning", "🤖 AI is analyzing the page...")
-    }
+    showToast("warning", "🤖 Analyzing page content...")
     
     try {
       // Scan the page for taggable content
       const taggableElements = await scanPageForTaggableContent()
       
-      // Mark AI as available if we got here without errors
-      setAiAvailable(true)
+      // Mark AI as ready
+      setAiStatus('ready')
       
       if (taggableElements.length === 0) {
-        showToast("warning", "No important content found by AI")
+        showToast("warning", "No important content found")
         return
       }
       
@@ -160,19 +157,38 @@ const AIScannerContentScript = () => {
       highlightTaggableElements(taggableElements, tagColor)
       setIsHighlighted(true)
       
-      showToast(
-        "success", 
-        `🎯 AI found ${taggableElements.length} important ${taggableElements.length === 1 ? 'element' : 'elements'}`
-      )
+      const message = taggableElements.length === 1 
+        ? "🎯 Found 1 important element" 
+        : `🎯 Found ${taggableElements.length} important elements`
+      
+      showToast("success", message)
       
     } catch (error) {
       console.error("AI scan failed:", error)
       
-      if (error.message.includes('local_files_only') || error.message.includes('not found locally')) {
-        showToast("danger", "AI models are downloading. Please try again in a moment.")
-        setAiAvailable(false)
+      if (error.message.includes('local_files_only') || 
+          error.message.includes('not found locally') ||
+          error.message.includes('404')) {
+        showToast("warning", "AI models loading... Using smart fallback analysis")
+        setAiStatus('fallback')
+        
+        // Try again with fallback mode
+        try {
+          const taggableElements = await scanPageForTaggableContent()
+          
+          if (taggableElements.length > 0) {
+            highlightTaggableElements(taggableElements, tagColor)
+            setIsHighlighted(true)
+            showToast("success", `📝 Found ${taggableElements.length} elements using smart analysis`)
+          } else {
+            showToast("warning", "No important content found")
+          }
+        } catch (fallbackError) {
+          console.error("Fallback scan also failed:", fallbackError)
+          showToast("danger", "Content analysis failed. Please try again.")
+        }
       } else {
-        showToast("danger", "AI scan failed. Using rule-based fallback.")
+        showToast("danger", "Analysis failed. Please try again.")
       }
     } finally {
       setIsScanning(false)
@@ -186,12 +202,18 @@ const AIScannerContentScript = () => {
 
   // Show loading indicator when scanning
   if (isScanning) {
+    const statusMessages = {
+      loading: "Analyzing content...",
+      ready: "AI analyzing page...",
+      fallback: "Smart analysis in progress..."
+    }
+    
     return (
       <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-[99999] bg-white border border-gray-300 rounded-lg px-4 py-2 shadow-lg">
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
           <span className="text-sm font-medium text-gray-700">
-            {!aiAvailable ? "AI downloading models..." : "AI analyzing page..."}
+            {statusMessages[aiStatus]}
           </span>
         </div>
       </div>

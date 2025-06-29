@@ -4,12 +4,12 @@ This module provides AI-powered content analysis for the TagXi extension using X
 
 ## Features
 
-- **Zero-shot Classification**: Uses DistilBERT to classify page content
+- **Text Classification**: Uses DistilBERT for sentiment-based content analysis
 - **Smart Element Detection**: Identifies important, notable, and actionable content
 - **XPath Integration**: Generates precise XPaths for highlighted elements
 - **Keyboard Shortcuts**: Ctrl+K to scan, Escape to clear
 - **Visual Indicators**: Highlights suggested elements with confidence scores
-- **Fallback System**: Rule-based classification when AI models fail to load
+- **Robust Fallback System**: Enhanced rule-based classification when AI models fail
 
 ## Usage
 
@@ -20,76 +20,118 @@ This module provides AI-powered content analysis for the TagXi extension using X
 ### How it Works
 
 1. **Page Scanning**: Analyzes text content from various HTML elements
-2. **AI Classification**: Uses zero-shot classification to identify important content
-3. **Fallback Classification**: Uses rule-based system if AI models aren't available
-4. **Smart Filtering**: Only highlights content above confidence threshold (60%)
+2. **AI Classification**: Uses sentiment analysis adapted for content importance
+3. **Fallback Classification**: Enhanced rule-based system with keyword matching
+4. **Smart Filtering**: Only highlights content above confidence threshold (50%)
 5. **Visual Feedback**: Shows dashed outlines and AI indicators
 6. **Quick Tagging**: Click AI indicators for instant tagging
 
-### Classification Labels
+### Classification System
 
-The AI classifies content into these categories:
-- `important information`: Critical content worth tagging
-- `notable content`: Interesting but less critical content  
-- `actionable item`: Content requiring user action
-- `key insight`: Important insights or conclusions
-- `skip`: Content not worth tagging
+The system maps sentiment analysis to content importance:
+- **Positive sentiment (>80%)** → Important content
+- **Positive sentiment (>60%)** → Notable content  
+- **Neutral/Negative sentiment** → Skip content
+
+### Fallback Classification
+
+When AI models aren't available, uses enhanced keyword matching:
+
+**Important Keywords:**
+- `important`, `critical`, `urgent`, `breaking`, `alert`
+- `announcement`, `update`, `new`, `release`, `launch`
+- `warning`, `error`, `issue`, `problem`, `fix`
+- `security`, `vulnerability`, `patch`, `hotfix`
+
+**Notable Keywords:**
+- `interesting`, `note`, `tip`, `advice`, `guide`
+- `tutorial`, `how to`, `learn`, `discover`, `feature`
+- `improvement`, `enhancement`, `optimization`
+- `best practice`, `recommendation`, `suggestion`
+
+**Skip Keywords:**
+- `advertisement`, `ad`, `sponsored`, `promotion`
+- `cookie`, `privacy policy`, `terms of service`
+- `footer`, `header`, `navigation`, `menu`
 
 ### Technical Details
 
-- **Model**: `Xenova/distilbert-base-uncased-mnli`
-- **Confidence Threshold**: 60% (configurable)
-- **Batch Processing**: Processes elements in batches of 5
+- **Model**: `Xenova/distilbert-base-uncased-finetuned-sst-2-english`
+- **Confidence Threshold**: 50% (configurable)
+- **Batch Processing**: Processes elements in batches of 3
+- **Element Limit**: Maximum 30 elements per scan for performance
 - **Performance**: Non-blocking with progressive loading
 - **Memory**: Efficient model caching and cleanup
-- **Fallback**: Rule-based classification when AI fails
 
-## Model Loading
+## Model Selection
 
-### First Time Setup
-- Models are downloaded automatically on first use
-- Download happens in background, may take 30-60 seconds
-- Subsequent uses are much faster (models cached)
+### Primary Model
+- **DistilBERT SST-2**: Lightweight sentiment analysis model
+- **Size**: ~67MB (much smaller than zero-shot models)
+- **Speed**: Fast inference suitable for browser extensions
+- **Reliability**: Well-tested and stable
 
-### Fallback System
-- If AI models fail to load, uses rule-based classification
-- Looks for keywords like "important", "critical", "urgent"
-- Provides basic content analysis without AI dependency
+### Fallback Strategy
+1. **WebGPU** → **CPU** → **Sentiment Analysis** → **Rule-based**
+2. Graceful degradation ensures extension always works
+3. Clear user feedback about which mode is active
+
+## Performance Optimizations
+
+### Model Loading
+- Uses smaller, more reliable sentiment analysis model
+- Automatic fallback to CPU if WebGPU fails
+- Caches models in browser for subsequent uses
+
+### Content Processing
+- Limits analysis to 30 most relevant elements
+- Processes in small batches (3 elements) to prevent blocking
+- Skips hidden, irrelevant, or advertisement content
+- Optimized text length filtering (10-300 characters)
+
+### Error Handling
+- Comprehensive fallback system
+- Automatic mode switching on AI failure
+- Clear user feedback about analysis mode
+- No blocking errors - always provides results
+
+## Browser Compatibility
+
+- **Chrome/Chromium**: Full support with WebGPU acceleration
+- **Firefox**: Full support with CPU fallback
+- **Safari**: Limited (requires WebAssembly support)
+- **Edge**: Full support
 
 ## Integration
 
 The AI scanner integrates with:
 - User settings (tag color preferences)
-- Existing XPath utilities
+- Existing XPath utilities  
 - Toast notification system
 - Background messaging system
 - Blocked websites functionality
-
-## Browser Compatibility
-
-- Chrome/Chromium: Full support with WebGPU acceleration
-- Firefox: Full support with CPU fallback
-- Safari: Limited (WebAssembly required)
-- Edge: Full support
-
-## Performance Notes
-
-- First scan may take 30-60 seconds (model downloading)
-- Subsequent scans are much faster (models cached)
-- Processes 5 elements per batch to avoid blocking
-- Automatically skips hidden/irrelevant elements
-- Graceful degradation to rule-based system if AI fails
+- Content script highlighting system
 
 ## Troubleshooting
 
-### "Models not found locally" Error
-- This is normal on first use
-- Models are downloading in background
-- Try again after 30-60 seconds
-- Extension will use rule-based fallback meanwhile
+### Model Loading Issues
+- Extension automatically falls back to rule-based analysis
+- No user intervention required
+- Clear feedback about which mode is active
 
-### Poor Classification Results
-- AI models may still be loading
-- Check browser console for loading progress
+### Poor Results
+- AI models may still be loading (first use)
 - Rule-based fallback provides basic functionality
-- Full AI features available after models load
+- Try again after a few moments for full AI features
+
+### Performance Issues
+- Reduced batch size and element limits
+- Automatic timeout and fallback systems
+- Non-blocking processing prevents browser freezing
+
+## Future Improvements
+
+- **Custom Model Training**: Train on web content specifically
+- **User Feedback Loop**: Learn from user tagging patterns
+- **Context Awareness**: Consider page type and domain
+- **Performance Metrics**: Track and optimize classification accuracy
