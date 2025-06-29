@@ -1,5 +1,5 @@
-import { classifyContent, isTaggable } from "./classifier"
 import { getXPathForElement } from "~lib/xpath/xpath"
+import { classifyContent, isTaggable } from "./classifier"
 
 export interface ScannableElement {
   element: Element
@@ -194,9 +194,13 @@ export function highlightTaggableElements(
     element.setAttribute("data-tagxi-original-style", originalStyle)
     
     // Create a subtle highlight effect
+    // @ts-ignore
     element.style.outline = `2px dashed ${tagColor}`
+    // @ts-ignore
     element.style.outlineOffset = "2px"
+    // @ts-ignore
     element.style.position = "relative"
+    // @ts-ignore
     element.style.transition = "all 0.3s ease"
     
     // Add a small indicator
