@@ -25,6 +25,7 @@ const TagInput: React.FC<TagInputProps> = ({
   const [showDropdown, setShowDropdown] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const isSelectingRef = useRef(false) // Track if we're in the middle of selecting
 
   // Filter friends when input changes
   useEffect(() => {
@@ -84,6 +85,9 @@ const TagInput: React.FC<TagInputProps> = ({
   }
 
   const selectFriend = (friend: Friend) => {
+    // Set flag to prevent blur from closing dropdown
+    isSelectingRef.current = true
+    
     const username = `@${friend.username}`
     setInputValue(username)
     setShowDropdown(false)
@@ -113,7 +117,12 @@ const TagInput: React.FC<TagInputProps> = ({
         
         onKeyDown(syntheticEvent as React.KeyboardEvent<HTMLInputElement>)
       }
-    }, 100)
+      
+      // Reset the selecting flag after a short delay
+      setTimeout(() => {
+        isSelectingRef.current = false
+      }, 100)
+    }, 50)
   }
 
   const handleInputFocus = () => {
@@ -123,13 +132,26 @@ const TagInput: React.FC<TagInputProps> = ({
   }
 
   const handleInputBlur = (e: React.FocusEvent) => {
+    // Don't close dropdown if we're in the middle of selecting a friend
+    if (isSelectingRef.current) {
+      return
+    }
+    
     // Delay hiding dropdown to allow clicks on dropdown items
     setTimeout(() => {
-      if (!dropdownRef.current?.contains(document.activeElement)) {
+      // Check if the newly focused element is within our dropdown
+      const activeElement = document.activeElement
+      if (!dropdownRef.current?.contains(activeElement) && !isSelectingRef.current) {
         setShowDropdown(false)
         setSelectedIndex(-1)
       }
     }, 150)
+  }
+
+  // Handle mouse down on dropdown to prevent blur
+  const handleDropdownMouseDown = (e: React.MouseEvent) => {
+    // Prevent the input from losing focus when clicking on dropdown
+    e.preventDefault()
   }
 
   // Scroll selected item into view
@@ -182,6 +204,7 @@ const TagInput: React.FC<TagInputProps> = ({
       {showDropdown && !disabled && (
         <div
           ref={dropdownRef}
+          onMouseDown={handleDropdownMouseDown} // Prevent blur when clicking dropdown
           style={{
             position: "fixed",
             top: `${position.top + 35}px`,
@@ -208,7 +231,11 @@ const TagInput: React.FC<TagInputProps> = ({
               {filteredFriends.map((friend, index) => (
                 <div
                   key={friend.username}
-                  onClick={() => selectFriend(friend)}
+                  onMouseDown={(e) => {
+                    // Prevent blur and handle selection
+                    e.preventDefault()
+                    selectFriend(friend)
+                  }}
                   onMouseEnter={() => setSelectedIndex(index)}
                   className={`px-3 py-2 cursor-pointer transition-all duration-150 flex items-center gap-3 group ${
                     index === selectedIndex 
