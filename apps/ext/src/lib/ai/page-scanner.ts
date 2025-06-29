@@ -93,54 +93,135 @@ function shouldScanElement(element: Element): boolean {
 }
 
 /**
- * Scan page and find elements worth tagging
+ * Find text nodes within an element for precise highlighting
+ */
+function findTextNodesInElement(element: Element): Text[] {
+  const textNodes: Text[] = []
+  const walker = document.createTreeWalker(
+    element,
+    NodeFilter.SHOW_TEXT,
+    {
+      acceptNode: (node) => {
+        // Only accept text nodes with meaningful content
+        const text = node.textContent?.trim() || ""
+        if (text.length > 5 && !text.match(/^\s*$/)) {
+          return NodeFilter.FILTER_ACCEPT
+        }
+        return NodeFilter.FILTER_REJECT
+      }
+    }
+  )
+  
+  let node
+  while (node = walker.nextNode()) {
+    textNodes.push(node as Text)
+  }
+  
+  return textNodes
+}
+
+/**
+ * Get the best text node for highlighting from an element
+ */
+function getBestTextNode(element: Element): { textNode: Text; text: string } | null {
+  const textNodes = findTextNodesInElement(element)
+  
+  if (textNodes.length === 0) {
+    return null
+  }
+  
+  // Find the longest meaningful text node
+  let bestNode = textNodes[0]
+  let bestText = bestNode.textContent?.trim() || ""
+  
+  for (const node of textNodes) {
+    const text = node.textContent?.trim() || ""
+    if (text.length > bestText.length) {
+      bestNode = node
+      bestText = text
+    }
+  }
+  
+  return { textNode: bestNode, text: bestText }
+}
+
+/**
+ * Scan page and find elements worth tagging - focusing on text content
  */
 export async function scanPageForTaggableContent(): Promise<ScannableElement[]> {
-  console.log("🔍 Starting AI page scan...")
+  console.log("🔍 Starting AI page scan (text-focused)...")
   
-  // Select elements that might contain important content
+  // Select elements that contain meaningful text content
   const selectors = [
     "h1", "h2", "h3", "h4", "h5", "h6", // Headers are usually important
     "p", "article", "section", // Main content
-    "div[class*='content']", "div[class*='article']", "div[class*='post']",
     "blockquote", "pre", "code", // Special content
     "li", "td", "th", // List and table items
-    "img[alt]", "figure", "figcaption", // Images with descriptions
-    "a[href]", "button" // Interactive elements
+    "figcaption", "caption", // Captions
+    "a[href]", "button", // Interactive elements with text
+    "span", "strong", "em", "b", "i", // Inline text elements
+    "div" // Include divs but we'll extract text nodes from them
   ]
   
   const elements = document.querySelectorAll(selectors.join(", "))
-  const candidates: { element: Element; text: string; xpath: string }[] = []
+  const candidates: { element: Element; textNode: Text; text: string; xpath: string }[] = []
   
-  // Filter and prepare candidates
+  // Filter and prepare candidates - focus on text nodes
   elements.forEach((element) => {
     if (!shouldScanElement(element)) return
     
-    const text = getElementText(element)
-    
-    // Only process elements with meaningful text content
-    if (text.length >= 10 && text.length <= 300) { // Adjusted for better performance
-      candidates.push({
-        element,
-        text,
-        xpath: getEnhancedXPath(element)
-      })
+    // For div elements, try to find the best text node inside
+    if (element.tagName === "DIV") {
+      const textNodeInfo = getBestTextNode(element)
+      if (textNodeInfo && textNodeInfo.text.length >= 15 && textNodeInfo.text.length <= 300) {
+        candidates.push({
+          element,
+          textNode: textNodeInfo.textNode,
+          text: textNodeInfo.text,
+          xpath: getEnhancedXPath(textNodeInfo.textNode)
+        })
+      }
+    } else {
+      // For other elements, use their direct text content
+      const text = getElementText(element)
+      
+      // Only process elements with meaningful text content
+      if (text.length >= 15 && text.length <= 300) {
+        // Try to find a text node within the element for better highlighting
+        const textNodeInfo = getBestTextNode(element)
+        if (textNodeInfo) {
+          candidates.push({
+            element,
+            textNode: textNodeInfo.textNode,
+            text: textNodeInfo.text,
+            xpath: getEnhancedXPath(textNodeInfo.textNode)
+          })
+        } else {
+          // Fallback to the element itself if no text nodes found
+          candidates.push({
+            element,
+            textNode: null,
+            text,
+            xpath: getEnhancedXPath(element)
+          })
+        }
+      }
     }
   })
   
-  console.log(`📑 Found ${candidates.length} candidates for AI analysis`)
+  console.log(`📑 Found ${candidates.length} text-focused candidates for AI analysis`)
   
   const taggableElements: ScannableElement[] = []
   let aiFailureCount = 0
   let useAI = true
   
   // Process candidates in smaller batches for better performance
-  const batchSize = 3 // Even smaller batch size
-  for (let i = 0; i < candidates.length && i < 30; i += batchSize) { // Limit total elements
+  const batchSize = 3
+  for (let i = 0; i < candidates.length && i < 30; i += batchSize) {
     const batch = candidates.slice(i, i + batchSize)
     
     await Promise.all(
-      batch.map(async ({ element, text, xpath }) => {
+      batch.map(async ({ element, textNode, text, xpath }) => {
         try {
           let result
           
@@ -159,9 +240,9 @@ export async function scanPageForTaggableContent(): Promise<ScannableElement[]> 
             result = fallbackClassifier(text)
           }
           
-          if (isTaggable(result, 0.5)) { // Lower threshold for better results
+          if (isTaggable(result, 0.5)) {
             taggableElements.push({
-              element,
+              element: textNode || element, // Prefer text node for highlighting
               text,
               xpath,
               confidence: result.scores[0],
@@ -169,11 +250,11 @@ export async function scanPageForTaggableContent(): Promise<ScannableElement[]> 
             })
             
             console.log(
-              `✅ Taggable: ${text.slice(0, 50)}... (${result.labels[0]}: ${(result.scores[0] * 100).toFixed(1)}%)`
+              `✅ Taggable text: ${text.slice(0, 50)}... (${result.labels[0]}: ${(result.scores[0] * 100).toFixed(1)}%)`
             )
           }
         } catch (error) {
-          console.warn(`Failed to process element: ${text.slice(0, 30)}...`, error)
+          console.warn(`Failed to process text: ${text.slice(0, 30)}...`, error)
         }
       })
     )
@@ -188,34 +269,66 @@ export async function scanPageForTaggableContent(): Promise<ScannableElement[]> 
     console.log(`⚠️ AI failed, used rule-based fallback for remaining elements`)
   }
   
-  console.log(`🎯 Found ${taggableElements.length} taggable elements`)
+  console.log(`🎯 Found ${taggableElements.length} taggable text elements`)
   return taggableElements
 }
 
 /**
- * Highlight elements with AI suggestions
+ * Highlight text elements with AI suggestions - improved for text nodes
  */
 export function highlightTaggableElements(
   elements: ScannableElement[],
   tagColor: string = "#ffb988"
 ): void {
   elements.forEach(({ element, confidence, label, text, xpath }) => {
+    let targetElement: Element
+    
+    // If element is a text node, we need to wrap it for highlighting
+    if (element.nodeType === Node.TEXT_NODE) {
+      const textNode = element as Text
+      const wrapper = document.createElement("span")
+      wrapper.style.cssText = `
+        background-color: ${tagColor}40;
+        border-radius: 3px;
+        padding: 2px 4px;
+        position: relative;
+        display: inline;
+      `
+      
+      // Wrap the text node
+      const parent = textNode.parentNode
+      if (parent) {
+        parent.insertBefore(wrapper, textNode)
+        wrapper.appendChild(textNode)
+        targetElement = wrapper
+      } else {
+        return // Skip if no parent
+      }
+    } else {
+      targetElement = element as Element
+      
+      // Apply highlighting styles to the element
+      const elementStyle = targetElement as HTMLElement
+      elementStyle.style.backgroundColor = `${tagColor}40`
+      elementStyle.style.borderRadius = "3px"
+      elementStyle.style.padding = "2px 4px"
+      elementStyle.style.position = "relative"
+      elementStyle.style.display = "inline-block"
+    }
+    
     // Add data attributes for identification
-    element.setAttribute("data-tagxi-ai-suggested", "true")
-    element.setAttribute("data-tagxi-confidence", confidence.toString())
-    element.setAttribute("data-tagxi-label", label)
-    element.setAttribute("data-tagxi-text", text)
-    element.setAttribute("data-tagxi-xpath", xpath)
+    targetElement.setAttribute("data-tagxi-ai-suggested", "true")
+    targetElement.setAttribute("data-tagxi-confidence", confidence.toString())
+    targetElement.setAttribute("data-tagxi-label", label)
+    targetElement.setAttribute("data-tagxi-text", text)
+    targetElement.setAttribute("data-tagxi-xpath", xpath)
     
-    // Apply highlighting styles
-    const originalStyle = element.getAttribute("style") || ""
-    element.setAttribute("data-tagxi-original-style", originalStyle)
+    // Store original styles
+    const originalStyle = targetElement.getAttribute("style") || ""
+    targetElement.setAttribute("data-tagxi-original-style", originalStyle)
     
-    // Create a subtle highlight effect
-    const elementStyle = element as HTMLElement
-    elementStyle.style.outline = `2px dashed ${tagColor}`
-    elementStyle.style.outlineOffset = "2px"
-    elementStyle.style.position = "relative"
+    // Add transition effect
+    const elementStyle = targetElement as HTMLElement
     elementStyle.style.transition = "all 0.3s ease"
     
     // Add a small indicator
@@ -225,20 +338,21 @@ export function highlightTaggableElements(
       position: absolute;
       top: -8px;
       right: -8px;
-      width: 20px;
-      height: 20px;
+      width: 18px;
+      height: 18px;
       background: ${tagColor};
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 10px;
+      font-size: 9px;
       font-weight: bold;
       color: #000;
       z-index: 9999;
       cursor: pointer;
       box-shadow: 0 2px 4px rgba(0,0,0,0.2);
       transition: transform 0.2s ease;
+      border: 2px solid white;
     `
     indicator.textContent = "🤖"
     indicator.title = `AI suggested (${(confidence * 100).toFixed(1)}% confidence) - Click to tag`
@@ -246,30 +360,48 @@ export function highlightTaggableElements(
     // Add hover effect
     indicator.addEventListener("mouseenter", () => {
       indicator.style.transform = "scale(1.1)"
+      elementStyle.style.backgroundColor = `${tagColor}60`
     })
     
     indicator.addEventListener("mouseleave", () => {
       indicator.style.transform = "scale(1)"
+      elementStyle.style.backgroundColor = `${tagColor}40`
     })
     
     // Add click handler for quick tagging
     indicator.addEventListener("click", async (e) => {
       e.stopPropagation()
-      await handleAITagSuggestion(element, label, confidence, text, xpath, tagColor)
+      await handleAITagSuggestion(targetElement, label, confidence, text, xpath, tagColor)
     })
     
-    element.appendChild(indicator)
+    targetElement.appendChild(indicator)
   })
 }
 
 /**
- * Clear AI highlights from the page
+ * Clear AI highlights from the page - improved for text nodes
  */
 export function clearAIHighlights(): void {
   const highlightedElements = document.querySelectorAll("[data-tagxi-ai-suggested]")
   
   highlightedElements.forEach((element) => {
-    // Restore original styles
+    // Remove AI indicators first
+    const indicators = element.querySelectorAll(".tagxi-ai-indicator")
+    indicators.forEach(indicator => indicator.remove())
+    
+    // If this is a wrapper we created for a text node, unwrap it
+    if (element.tagName === "SPAN" && element.hasAttribute("data-tagxi-ai-suggested")) {
+      const parent = element.parentNode
+      const textNode = element.firstChild
+      
+      if (parent && textNode && textNode.nodeType === Node.TEXT_NODE) {
+        parent.insertBefore(textNode, element)
+        parent.removeChild(element)
+        return
+      }
+    }
+    
+    // Otherwise, restore original styles
     const originalStyle = element.getAttribute("data-tagxi-original-style") || ""
     element.setAttribute("style", originalStyle)
     
@@ -280,10 +412,6 @@ export function clearAIHighlights(): void {
     element.removeAttribute("data-tagxi-text")
     element.removeAttribute("data-tagxi-xpath")
     element.removeAttribute("data-tagxi-original-style")
-    
-    // Remove AI indicators
-    const indicators = element.querySelectorAll(".tagxi-ai-indicator")
-    indicators.forEach(indicator => indicator.remove())
   })
   
   console.log("🧹 Cleared AI highlights")
@@ -430,18 +558,25 @@ async function handleAITagSuggestion(
     tagBtn.style.opacity = "0.7"
     
     try {
-      // Calculate text selection bounds for the element
-      const textContent = element.textContent || ""
-      const startOffset = 0
-      const endOffset = textContent.length
+      // For text nodes, we need to calculate proper offsets
+      let startOffset = 0
+      let endOffset = text.length
+      
+      // If we're dealing with a text node wrapper, get the actual text node
+      let targetXPath = xpath
+      if (element.tagName === "SPAN" && element.firstChild?.nodeType === Node.TEXT_NODE) {
+        const textNode = element.firstChild as Text
+        targetXPath = getEnhancedXPath(textNode)
+        endOffset = textNode.textContent?.length || text.length
+      }
       
       // Create tag data
       const tagData = {
         url: window.location.href,
         tag: username,
         timestamp: Date.now(),
-        startContainerXPath: xpath,
-        endContainerXPath: xpath,
+        startContainerXPath: targetXPath,
+        endContainerXPath: targetXPath,
         startOffset,
         endOffset
       }
@@ -453,20 +588,17 @@ async function handleAITagSuggestion(
       })
       
       if (response.success) {
-        // Remove AI highlight and add user highlight
+        // Remove AI highlight
         element.removeAttribute("data-tagxi-ai-suggested")
         const indicator = element.querySelector(".tagxi-ai-indicator")
         if (indicator) indicator.remove()
         
-        // Restore original styles
-        const originalStyle = element.getAttribute("data-tagxi-original-style") || ""
-        element.setAttribute("style", originalStyle)
-        
-        // Add user tag highlight with hover functionality
+        // Convert AI highlight to user highlight
         const htmlElement = element as HTMLElement
-        htmlElement.style.outline = `2px solid ${tagColor}`
-        htmlElement.style.outlineOffset = "2px"
-        htmlElement.style.position = "relative"
+        htmlElement.style.backgroundColor = tagColor
+        htmlElement.style.border = `2px solid ${tagColor}`
+        htmlElement.style.borderRadius = "4px"
+        htmlElement.style.padding = "2px 4px"
         htmlElement.style.cursor = "pointer"
         htmlElement.setAttribute("data-tagxi-tagged-by", username)
         
@@ -479,7 +611,8 @@ async function handleAITagSuggestion(
           tooltip.style.cssText = `
             position: absolute;
             top: -35px;
-            left: 10px;
+            left: 50%;
+            transform: translateX(-50%);
             background: rgba(0, 0, 0, 0.9);
             color: white;
             padding: 6px 10px;
