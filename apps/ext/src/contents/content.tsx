@@ -57,12 +57,14 @@ const TagxiContentScript = () => {
   const [blockedWebsites, setBlockedWebsites] = useState<string[]>([])
   const [currentUsername, setCurrentUsername] = useState<string>("")
   const [friends, setFriends] = useState<Friend[]>([])
+  const [friendsLoaded, setFriendsLoaded] = useState(false)
   const [lastScroll, setLastScroll] = useState({
     y: window.scrollY,
     x: window.scrollX
   })
   const selectionRef = useRef<Record<string, string | number> | null>(null)
   const settingsLoadedRef = useRef(false) // Prevent multiple loads
+  const friendsLoadedRef = useRef(false) // Prevent multiple loads
 
   // Check if current site is blocked
   const isCurrentSiteBlocked = () => {
@@ -83,7 +85,7 @@ const TagxiContentScript = () => {
     })
   }
 
-  // Load user settings and friends - ONLY ONCE
+  // Load user settings - ONLY ONCE
   const loadSettings = async () => {
     // Prevent multiple simultaneous loads
     if (settingsLoadedRef.current) {
@@ -94,9 +96,9 @@ const TagxiContentScript = () => {
     settingsLoadedRef.current = true
     
     try {
-      console.log("🔧 Content Script: Loading user settings and friends (one-time)...")
+      console.log("🔧 Content Script: Loading user settings (one-time)...")
       
-      // Get settings, auth info, and friends
+      // Get settings and auth info
       const [settingsResponse, authResponse] = await Promise.all([
         sendToBackground({ name: "get-settings" }),
         sendToBackground({ name: "get-auth" })
@@ -130,6 +132,38 @@ const TagxiContentScript = () => {
     } catch (error) {
       console.error("❌ Content Script: Error loading settings:", error)
       setSettingsLoaded(true) // Still mark as loaded to prevent blocking
+    }
+  }
+
+  // Load user friends - ONLY ONCE
+  const loadFriends = async () => {
+    // Prevent multiple simultaneous loads
+    if (friendsLoadedRef.current) {
+      console.log("⚠️ Content Script: Friends already loaded, skipping...")
+      return
+    }
+    
+    friendsLoadedRef.current = true
+    
+    try {
+      console.log("👥 Content Script: Loading user friends (one-time)...")
+      
+      const friendsResponse = await sendToBackground({ name: "get-friends" })
+      
+      if (friendsResponse.success && friendsResponse.data) {
+        setFriends(friendsResponse.data)
+        console.log("✅ Content Script: Friends loaded:", friendsResponse.data.length, "friends")
+        console.log(`📦 Content Script: Friends source: ${friendsResponse.source || 'unknown'}`)
+      } else {
+        console.log("⚠️ Content Script: No friends found or failed to load")
+        setFriends([]) // Set empty array as fallback
+      }
+      
+      setFriendsLoaded(true)
+    } catch (error) {
+      console.error("❌ Content Script: Error loading friends:", error)
+      setFriends([]) // Set empty array as fallback
+      setFriendsLoaded(true) // Still mark as loaded to prevent blocking
     }
   }
 
@@ -377,7 +411,7 @@ const TagxiContentScript = () => {
     }
   }, [])
 
-  // Initial setup - load settings ONLY ONCE
+  // Initial setup - load settings and friends ONLY ONCE
   useEffect(() => {
     const initializeExtension = async () => {
       console.log("🚀 Content Script: Initializing TagXi extension...")
@@ -385,6 +419,11 @@ const TagxiContentScript = () => {
       // Step 1: Load settings ONLY if not already loaded
       if (!settingsLoadedRef.current) {
         await loadSettings()
+      }
+      
+      // Step 2: Load friends ONLY if not already loaded
+      if (!friendsLoadedRef.current) {
+        await loadFriends()
       }
     }
     
@@ -424,7 +463,7 @@ const TagxiContentScript = () => {
           position={iconPosition}
           onKeyDown={handleInputKeyDown}
           disabled={isLoading}
-          friends={friends} // Pass pre-loaded friends (empty for now)
+          friends={friends} // Pass loaded friends to TagInput
         />
       )}
     </>
