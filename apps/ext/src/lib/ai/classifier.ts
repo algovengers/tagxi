@@ -1,18 +1,35 @@
 import { pipeline, env } from "@xenova/transformers"
 
-// Configure transformers for browser extension environment
+// Configure transformers for browser extension environment with IndexedDB caching
 env.allowRemoteModels = true
 env.allowLocalModels = true
 env.useBrowserCache = true
+env.cacheDir = 'tagxi-ai-models' // Custom cache directory in IndexedDB
 
 let classifier: any = null
 let isLoading = false
 
+// Session-based model cache - persists until browser restart
+let sessionModelCache: {
+  model?: any
+  timestamp: number
+} = {
+  timestamp: 0
+}
+
 /**
  * Load a lightweight classifier model suitable for browser extensions
+ * Models are cached in IndexedDB and session memory for optimal performance
  */
 export async function loadClassifier() {
+  // Check session cache first (fastest)
+  if (sessionModelCache.model) {
+    console.log("⚡ AI Classifier: Using session cached model")
+    return sessionModelCache.model
+  }
+  
   if (classifier) {
+    sessionModelCache.model = classifier
     return classifier
   }
   
@@ -21,13 +38,13 @@ export async function loadClassifier() {
     while (isLoading) {
       await new Promise(resolve => setTimeout(resolve, 100))
     }
-    return classifier
+    return classifier || sessionModelCache.model
   }
   
   isLoading = true
   
   try {
-    console.log("🤖 Loading AI classifier...")
+    console.log("🤖 Loading AI classifier (will cache in IndexedDB)...")
     
     // Use a smaller, more reliable model that works better in browser extensions
     // This model is specifically designed for text classification and is smaller
@@ -35,13 +52,20 @@ export async function loadClassifier() {
       "text-classification",
       "Xenova/distilbert-base-uncased-finetuned-sst-2-english",
       {
-        // Configure for browser environment
+        // Configure for browser environment with IndexedDB caching
         device: 'webgpu',
-        dtype: 'fp32'
+        dtype: 'fp32',
+        cache_dir: env.cacheDir, // Use IndexedDB for persistent caching
+        local_files_only: false, // Allow downloading if not cached
+        use_cache: true // Enable caching
       }
     )
     
-    console.log("✅ AI classifier loaded successfully")
+    // Cache in session for immediate reuse
+    sessionModelCache.model = classifier
+    sessionModelCache.timestamp = Date.now()
+    
+    console.log("✅ AI classifier loaded and cached successfully")
     return classifier
   } catch (error) {
     console.error("❌ Failed to load AI classifier:", error)
@@ -54,10 +78,17 @@ export async function loadClassifier() {
         "Xenova/distilbert-base-uncased-finetuned-sst-2-english",
         {
           device: 'cpu',
-          dtype: 'fp32'
+          dtype: 'fp32',
+          cache_dir: env.cacheDir,
+          local_files_only: false,
+          use_cache: true
         }
       )
-      console.log("✅ AI classifier loaded with CPU fallback")
+      
+      sessionModelCache.model = classifier
+      sessionModelCache.timestamp = Date.now()
+      
+      console.log("✅ AI classifier loaded with CPU fallback and cached")
       return classifier
     } catch (fallbackError) {
       console.error("❌ CPU fallback also failed:", fallbackError)
@@ -67,9 +98,18 @@ export async function loadClassifier() {
         console.log("🔄 Trying lightweight model as last resort...")
         classifier = await pipeline(
           "sentiment-analysis",
-          "Xenova/distilbert-base-uncased-finetuned-sst-2-english"
+          "Xenova/distilbert-base-uncased-finetuned-sst-2-english",
+          {
+            cache_dir: env.cacheDir,
+            local_files_only: false,
+            use_cache: true
+          }
         )
-        console.log("✅ Lightweight AI classifier loaded")
+        
+        sessionModelCache.model = classifier
+        sessionModelCache.timestamp = Date.now()
+        
+        console.log("✅ Lightweight AI classifier loaded and cached")
         return classifier
       } catch (lastResortError) {
         console.error("❌ All AI models failed:", lastResortError)
@@ -78,6 +118,27 @@ export async function loadClassifier() {
     }
   } finally {
     isLoading = false
+  }
+}
+
+/**
+ * Clear model cache (useful for debugging or memory management)
+ */
+export function clearModelCache() {
+  sessionModelCache = { timestamp: 0 }
+  classifier = null
+  console.log("🧹 AI model cache cleared")
+}
+
+/**
+ * Get cache status for debugging
+ */
+export function getCacheStatus() {
+  return {
+    hasSessionCache: !!sessionModelCache.model,
+    hasClassifier: !!classifier,
+    cacheAge: sessionModelCache.timestamp ? Date.now() - sessionModelCache.timestamp : 0,
+    cacheDir: env.cacheDir
   }
 }
 

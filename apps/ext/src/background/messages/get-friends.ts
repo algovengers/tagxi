@@ -1,25 +1,44 @@
 import type { PlasmoMessaging } from "@plasmohq/messaging"
 
-// Cache friends for 5 minutes to prevent excessive requests
+// Session-based cache - cleared when page reloads
+let sessionCache: {
+  friends?: {
+    data: any[]
+    timestamp: number
+  }
+} = {}
+
 const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
-let friendsCache: {
-  data: any[]
-  timestamp: number
-} | null = null
 
 // Track ongoing requests to prevent duplicate calls
 let ongoingRequest: Promise<any> | null = null
 
 const handler: PlasmoMessaging.MessageHandler = async (req, res) => {
   try {
-    // Check if we have valid cached data
-    if (friendsCache && (Date.now() - friendsCache.timestamp) < CACHE_DURATION) {
-      console.log("📦 get-friends: Returning cached friends")
+    const { query = "" } = req.body || {}
+    
+    // Create cache key based on query
+    const cacheKey = `friends_${query.toLowerCase()}`
+    
+    // Check session cache first
+    if (sessionCache.friends && (Date.now() - sessionCache.friends.timestamp) < CACHE_DURATION) {
+      console.log("📦 get-friends: Returning session cached friends")
+      
+      // Filter cached friends based on query
+      let filteredFriends = sessionCache.friends.data
+      if (query.trim()) {
+        const searchQuery = query.toLowerCase().replace(/^@/, "")
+        filteredFriends = sessionCache.friends.data.filter(friend => 
+          friend.username.toLowerCase().includes(searchQuery) ||
+          (friend.name && friend.name.toLowerCase().includes(searchQuery))
+        )
+      }
+      
       res.send({
         success: true,
-        data: friendsCache.data,
-        message: "Friends retrieved from cache",
-        source: "cache"
+        data: filteredFriends,
+        message: "Friends retrieved from session cache",
+        source: "session-cache"
       });
       return
     }
@@ -29,10 +48,19 @@ const handler: PlasmoMessaging.MessageHandler = async (req, res) => {
       console.log("⏳ get-friends: Waiting for ongoing request...")
       try {
         const result = await ongoingRequest
+        
+        // Apply query filter to the result
+        if (query.trim() && result.success) {
+          const searchQuery = query.toLowerCase().replace(/^@/, "")
+          result.data = result.data.filter((friend: any) => 
+            friend.username.toLowerCase().includes(searchQuery) ||
+            (friend.name && friend.name.toLowerCase().includes(searchQuery))
+          )
+        }
+        
         res.send(result)
         return
       } catch (error) {
-        // If the ongoing request failed, we'll make a new one below
         ongoingRequest = null
       }
     }
@@ -43,7 +71,7 @@ const handler: PlasmoMessaging.MessageHandler = async (req, res) => {
     
     // Create the request promise and store it
     ongoingRequest = (async () => {
-      // Use the search API with friendsOnly flag to get friends
+      // Use the search API with empty query to get all friends
       const response = await fetch(`${API_BASE_URL}/api/trpc/search`, {
         method: 'POST',
         headers: {
@@ -51,7 +79,7 @@ const handler: PlasmoMessaging.MessageHandler = async (req, res) => {
         },
         credentials: 'include',
         body: JSON.stringify({
-          query: "",
+          query: "", // Get all friends first
           friendsOnly: true
         })
       });
@@ -66,24 +94,34 @@ const handler: PlasmoMessaging.MessageHandler = async (req, res) => {
         throw new Error('Invalid response format');
       }
 
-      const friends = data.result.data.map((friend: any) => ({
+      const allFriends = data.result.data.map((friend: any) => ({
         username: friend.username,
         name: friend.name,
         image: friend.image,
         areFriends: friend.areFriends
       }));
       
-      // Cache the successful response
-      friendsCache = {
-        data: friends,
+      // Cache all friends in session cache
+      sessionCache.friends = {
+        data: allFriends,
         timestamp: Date.now()
       }
       
-      console.log("✅ get-friends: Fresh friends cached:", friends.length)
+      console.log("✅ get-friends: Fresh friends cached in session:", allFriends.length)
+
+      // Filter based on query
+      let filteredFriends = allFriends
+      if (query.trim()) {
+        const searchQuery = query.toLowerCase().replace(/^@/, "")
+        filteredFriends = allFriends.filter((friend: any) => 
+          friend.username.toLowerCase().includes(searchQuery) ||
+          (friend.name && friend.name.toLowerCase().includes(searchQuery))
+        )
+      }
 
       return {
         success: true,
-        data: friends,
+        data: filteredFriends,
         message: "Friends retrieved successfully",
         source: "api"
       }
@@ -99,14 +137,24 @@ const handler: PlasmoMessaging.MessageHandler = async (req, res) => {
     // Clear the ongoing request on error
     ongoingRequest = null
     
-    // If we have cached data, return it even if stale
-    if (friendsCache) {
-      console.log("🔄 get-friends: API failed, returning stale cache")
+    // If we have session cached data, return it even if stale
+    if (sessionCache.friends) {
+      console.log("🔄 get-friends: API failed, returning stale session cache")
+      
+      let filteredFriends = sessionCache.friends.data
+      if (req.body?.query?.trim()) {
+        const searchQuery = req.body.query.toLowerCase().replace(/^@/, "")
+        filteredFriends = sessionCache.friends.data.filter((friend: any) => 
+          friend.username.toLowerCase().includes(searchQuery) ||
+          (friend.name && friend.name.toLowerCase().includes(searchQuery))
+        )
+      }
+      
       res.send({
         success: true,
-        data: friendsCache.data,
-        message: "Friends retrieved from stale cache (API unavailable)",
-        source: "stale-cache"
+        data: filteredFriends,
+        message: "Friends retrieved from stale session cache (API unavailable)",
+        source: "stale-session-cache"
       });
       return
     }

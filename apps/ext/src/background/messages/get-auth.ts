@@ -2,24 +2,27 @@ import type { PlasmoMessaging } from "@plasmohq/messaging"
 
 import { authClient } from "~lib/auth/auth-client"
 
-// Cache auth session for 2 minutes to prevent excessive requests
+// Session-based cache - cleared when page reloads
+let sessionCache: {
+  auth?: {
+    data: any
+    timestamp: number
+  }
+} = {}
+
 const CACHE_DURATION = 2 * 60 * 1000 // 2 minutes
-let authCache: {
-  data: any
-  timestamp: number
-} | null = null
 
 // Track ongoing requests to prevent duplicate calls
 let ongoingAuthRequest: Promise<any> | null = null
 
 const handler: PlasmoMessaging.MessageHandler = async (req, res) => {
   try {
-    // Check if we have valid cached data
-    if (authCache && (Date.now() - authCache.timestamp) < CACHE_DURATION) {
-      console.log("📦 get-auth: Returning cached session")
+    // Check if we have valid session cached data
+    if (sessionCache.auth && (Date.now() - sessionCache.auth.timestamp) < CACHE_DURATION) {
+      console.log("📦 get-auth: Returning session cached session")
       res.send({
-        redirect: authCache.data,
-        source: "cache"
+        redirect: sessionCache.auth.data,
+        source: "session-cache"
       })
       return
     }
@@ -43,13 +46,13 @@ const handler: PlasmoMessaging.MessageHandler = async (req, res) => {
     ongoingAuthRequest = (async () => {
       const session = await authClient.getSession()
       
-      // Cache the response (both success and failure)
-      authCache = {
+      // Cache the response in session cache (both success and failure)
+      sessionCache.auth = {
         data: session,
         timestamp: Date.now()
       }
       
-      console.log("✅ get-auth: Session check cached")
+      console.log("✅ get-auth: Session check cached in session")
       
       return {
         redirect: session,
@@ -67,12 +70,12 @@ const handler: PlasmoMessaging.MessageHandler = async (req, res) => {
     // Clear the ongoing request on error
     ongoingAuthRequest = null
     
-    // If we have cached data, return it even if stale
-    if (authCache) {
-      console.log("🔄 get-auth: Auth check failed, returning stale cache")
+    // If we have session cached data, return it even if stale
+    if (sessionCache.auth) {
+      console.log("🔄 get-auth: Auth check failed, returning stale session cache")
       res.send({
-        redirect: authCache.data,
-        source: "stale-cache"
+        redirect: sessionCache.auth.data,
+        source: "stale-session-cache"
       })
       return
     }

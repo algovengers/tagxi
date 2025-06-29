@@ -1,25 +1,28 @@
 import type { PlasmoMessaging } from "@plasmohq/messaging"
 
-// Cache settings for 5 minutes to prevent excessive requests
+// Session-based cache - cleared when page reloads
+let sessionCache: {
+  settings?: {
+    data: any
+    timestamp: number
+  }
+} = {}
+
 const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
-let settingsCache: {
-  data: any
-  timestamp: number
-} | null = null
 
 // Track ongoing requests to prevent duplicate calls
 let ongoingRequest: Promise<any> | null = null
 
 const handler: PlasmoMessaging.MessageHandler = async (req, res) => {
   try {
-    // Check if we have valid cached data
-    if (settingsCache && (Date.now() - settingsCache.timestamp) < CACHE_DURATION) {
-      console.log("📦 get-settings: Returning cached settings")
+    // Check if we have valid session cached data
+    if (sessionCache.settings && (Date.now() - sessionCache.settings.timestamp) < CACHE_DURATION) {
+      console.log("📦 get-settings: Returning session cached settings")
       res.send({
         success: true,
-        data: settingsCache.data,
-        message: "Settings retrieved from cache",
-        source: "cache"
+        data: sessionCache.settings.data,
+        message: "Settings retrieved from session cache",
+        source: "session-cache"
       });
       return
     }
@@ -57,13 +60,13 @@ const handler: PlasmoMessaging.MessageHandler = async (req, res) => {
 
       const settings = await response.json();
       
-      // Cache the successful response
-      settingsCache = {
+      // Cache the successful response in session cache
+      sessionCache.settings = {
         data: settings,
         timestamp: Date.now()
       }
       
-      console.log("✅ get-settings: Fresh settings cached:", {
+      console.log("✅ get-settings: Fresh settings cached in session:", {
         tagColor: settings.extensionSettings?.tag_color,
         blockedWebsites: settings.blockedWebsites?.length || 0
       })
@@ -86,14 +89,14 @@ const handler: PlasmoMessaging.MessageHandler = async (req, res) => {
     // Clear the ongoing request on error
     ongoingRequest = null
     
-    // If we have cached data, return it even if stale
-    if (settingsCache) {
-      console.log("🔄 get-settings: API failed, returning stale cache")
+    // If we have session cached data, return it even if stale
+    if (sessionCache.settings) {
+      console.log("🔄 get-settings: API failed, returning stale session cache")
       res.send({
         success: true,
-        data: settingsCache.data,
-        message: "Settings retrieved from stale cache (API unavailable)",
-        source: "stale-cache"
+        data: sessionCache.settings.data,
+        message: "Settings retrieved from stale session cache (API unavailable)",
+        source: "stale-session-cache"
       });
       return
     }
