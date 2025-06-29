@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState } from "react"
-import { sendToBackground } from "@plasmohq/messaging"
 
 type Friend = {
   username: string
@@ -11,126 +10,44 @@ type TagInputProps = {
   position: { top: number; left: number }
   onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void
   disabled?: boolean
+  friends?: Friend[] // Pre-loaded friends list
 }
 
 const TagInput: React.FC<TagInputProps> = ({
   position,
   onKeyDown,
-  disabled = false
+  disabled = false,
+  friends = []
 }) => {
-  const [friends, setFriends] = useState<Friend[]>([])
   const [filteredFriends, setFilteredFriends] = useState<Friend[]>([])
   const [inputValue, setInputValue] = useState("")
   const [selectedIndex, setSelectedIndex] = useState(-1)
-  const [isLoadingFriends, setIsLoadingFriends] = useState(false)
   const [showDropdown, setShowDropdown] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
-  const searchTimeoutRef = useRef<NodeJS.Timeout>()
 
-  // Load friends when component mounts
+  // Filter friends when input changes
   useEffect(() => {
     if (!disabled) {
-      loadFriends("")
       inputRef.current?.focus()
     }
-  }, [disabled])
 
-  // Search friends when input changes
-  useEffect(() => {
-    // Clear previous timeout
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current)
-    }
-
-    // Debounce search to avoid too many requests
-    searchTimeoutRef.current = setTimeout(() => {
-      if (inputValue.trim() === "") {
-        // Show all friends when input is empty
-        setFilteredFriends(friends)
-        setShowDropdown(friends.length > 0)
-      } else {
-        // Search friends based on input
-        const query = inputValue.replace(/^@/, "").toLowerCase()
-        searchFriends(query)
-      }
-      setSelectedIndex(-1)
-    }, 300) // 300ms debounce
-
-    return () => {
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current)
-      }
-    }
-  }, [inputValue, friends])
-
-  const loadFriends = async (query: string = "") => {
-    setIsLoadingFriends(true)
-    try {
-      console.log("🔄 TagInput: Loading friends with query:", query)
-      const response = await sendToBackground({
-        name: "get-friends",
-        body: { query }
-      })
-
-      if (response.success && response.data) {
-        if (query === "") {
-          // Store all friends for local filtering
-          setFriends(response.data)
-        }
-        setFilteredFriends(response.data)
-        setShowDropdown(response.data.length > 0)
-        console.log(`✅ TagInput: Loaded ${response.data.length} friends from ${response.source || 'unknown'}`)
-      } else {
-        console.warn("⚠️ TagInput: Failed to load friends")
-        setFilteredFriends([])
-        setShowDropdown(false)
-      }
-    } catch (error) {
-      console.error("❌ TagInput: Error loading friends:", error)
-      setFilteredFriends([])
-      setShowDropdown(false)
-    } finally {
-      setIsLoadingFriends(false)
-    }
-  }
-
-  const searchFriends = async (query: string) => {
-    if (!query.trim()) {
+    if (inputValue.trim() === "") {
+      // Show all friends when input is empty
       setFilteredFriends(friends)
       setShowDropdown(friends.length > 0)
-      return
+    } else {
+      // Filter friends based on input
+      const query = inputValue.replace(/^@/, "").toLowerCase()
+      const filtered = friends.filter(friend => 
+        friend.username.toLowerCase().includes(query) ||
+        (friend.name && friend.name.toLowerCase().includes(query))
+      )
+      setFilteredFriends(filtered)
+      setShowDropdown(filtered.length > 0)
     }
-
-    // First try local filtering for instant results
-    const localFiltered = friends.filter(friend => 
-      friend.username.toLowerCase().includes(query) ||
-      (friend.name && friend.name.toLowerCase().includes(query))
-    )
-    
-    setFilteredFriends(localFiltered)
-    setShowDropdown(localFiltered.length > 0)
-
-    // Then do server search for more comprehensive results
-    try {
-      setIsLoadingFriends(true)
-      const response = await sendToBackground({
-        name: "get-friends",
-        body: { query }
-      })
-
-      if (response.success && response.data) {
-        setFilteredFriends(response.data)
-        setShowDropdown(response.data.length > 0)
-        console.log(`🔍 TagInput: Search results for "${query}": ${response.data.length} friends`)
-      }
-    } catch (error) {
-      console.error("❌ TagInput: Error searching friends:", error)
-      // Keep local filtered results on error
-    } finally {
-      setIsLoadingFriends(false)
-    }
-  }
+    setSelectedIndex(-1)
+  }, [inputValue, friends, disabled])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
@@ -269,13 +186,6 @@ const TagInput: React.FC<TagInputProps> = ({
             {friends.length}👥
           </div>
         )}
-        
-        {/* Loading indicator */}
-        {isLoadingFriends && (
-          <div className="ml-1">
-            <div className="w-3 h-3 border border-gray-400 border-t-transparent rounded-full animate-spin"></div>
-          </div>
-        )}
       </div>
 
       {/* Friends Dropdown */}
@@ -296,9 +206,6 @@ const TagInput: React.FC<TagInputProps> = ({
               <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
                 👥 {inputValue.trim() ? `Search: "${inputValue.replace(/^@/, "")}"` : "Your Friends"}
               </span>
-              {isLoadingFriends && (
-                <div className="w-3 h-3 border border-gray-400 border-t-transparent rounded-full animate-spin"></div>
-              )}
             </div>
           </div>
 
@@ -350,11 +257,6 @@ const TagInput: React.FC<TagInputProps> = ({
                   </div>
                 </div>
               ))}
-            </div>
-          ) : isLoadingFriends ? (
-            <div className="px-3 py-4 text-center text-gray-500 text-sm">
-              <div className="w-4 h-4 border border-gray-400 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-              Searching friends...
             </div>
           ) : friends.length === 0 ? (
             <div className="px-3 py-4 text-center text-gray-500 text-sm">

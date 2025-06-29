@@ -41,6 +41,12 @@ export const getStyle = () => {
 
 const MAX_SCROLL_DELTA = 150
 
+type Friend = {
+  username: string
+  name: string | null
+  image: string | null
+}
+
 const TagxiContentScript = () => {
   const [showIcon, setShowIcon] = useState(false)
   const [iconPosition, setIconPosition] = useState({ top: 0, left: 0 })
@@ -50,6 +56,7 @@ const TagxiContentScript = () => {
   const [tagColor, setTagColor] = useState("#ffb988") // Default color
   const [blockedWebsites, setBlockedWebsites] = useState<string[]>([])
   const [currentUsername, setCurrentUsername] = useState<string>("")
+  const [friends, setFriends] = useState<Friend[]>([])
   const [lastScroll, setLastScroll] = useState({
     y: window.scrollY,
     x: window.scrollX
@@ -76,7 +83,7 @@ const TagxiContentScript = () => {
     })
   }
 
-  // Load user settings and authentication info - ONLY ONCE
+  // Load user settings and friends - ONLY ONCE
   const loadSettings = async () => {
     // Prevent multiple simultaneous loads
     if (settingsLoadedRef.current) {
@@ -87,12 +94,13 @@ const TagxiContentScript = () => {
     settingsLoadedRef.current = true
     
     try {
-      console.log("🔧 Content Script: Loading user settings (one-time)...")
+      console.log("🔧 Content Script: Loading user settings and friends (one-time)...")
       
-      // Get both settings and auth info
-      const [settingsResponse, authResponse] = await Promise.all([
+      // Get settings, auth info, and friends
+      const [settingsResponse, authResponse, friendsResponse] = await Promise.all([
         sendToBackground({ name: "get-settings" }),
-        sendToBackground({ name: "get-auth" })
+        sendToBackground({ name: "get-auth" }),
+        sendToBackground({ name: "get-friends", body: { query: "" } })
       ])
       
       // Handle settings
@@ -118,8 +126,14 @@ const TagxiContentScript = () => {
         console.log("✅ Content Script: Current user loaded:", authResponse.redirect.data.user.username)
       }
       
+      // Handle friends
+      if (friendsResponse.success && friendsResponse.data) {
+        setFriends(friendsResponse.data)
+        console.log("✅ Content Script: Friends loaded:", friendsResponse.data.length)
+      }
+      
       setSettingsLoaded(true)
-      console.log("✅ Content Script: Settings and auth loaded successfully")
+      console.log("✅ Content Script: Settings, auth, and friends loaded successfully")
     } catch (error) {
       console.error("❌ Content Script: Error loading settings:", error)
       setSettingsLoaded(true) // Still mark as loaded to prevent blocking
@@ -417,6 +431,7 @@ const TagxiContentScript = () => {
           position={iconPosition}
           onKeyDown={handleInputKeyDown}
           disabled={isLoading}
+          friends={friends} // Pass pre-loaded friends
         />
       )}
     </>

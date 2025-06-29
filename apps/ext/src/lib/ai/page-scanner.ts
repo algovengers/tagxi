@@ -104,7 +104,7 @@ function findTextNodesInElement(element: Element): Text[] {
       acceptNode: (node) => {
         // Only accept text nodes with meaningful content
         const text = node.textContent?.trim() || ""
-        if (text.length > 5 && !text.match(/^\s*$/)) {
+        if (text.length > 10 && !text.match(/^\s*$/)) {
           return NodeFilter.FILTER_ACCEPT
         }
         return NodeFilter.FILTER_REJECT
@@ -146,111 +146,243 @@ function getBestTextNode(element: Element): { textNode: Text; text: string } | n
 }
 
 /**
- * Scan page and find elements worth tagging - focusing on text content
+ * Enhanced content quality scoring
+ */
+function getContentQualityScore(text: string, element: Element): number {
+  let score = 0
+  
+  // Text length scoring (optimal range: 20-150 characters)
+  if (text.length >= 20 && text.length <= 150) {
+    score += 0.3
+  } else if (text.length > 150 && text.length <= 300) {
+    score += 0.2
+  } else if (text.length < 20) {
+    score -= 0.2
+  }
+  
+  // Element type scoring
+  const tagName = element.tagName.toLowerCase()
+  const tagScores = {
+    'h1': 0.4, 'h2': 0.35, 'h3': 0.3, 'h4': 0.25, 'h5': 0.2, 'h6': 0.15,
+    'p': 0.25, 'article': 0.3, 'section': 0.2,
+    'blockquote': 0.3, 'pre': 0.25, 'code': 0.2,
+    'strong': 0.15, 'em': 0.1, 'b': 0.1, 'i': 0.05,
+    'a': 0.15, 'button': 0.2,
+    'li': 0.1, 'td': 0.05, 'th': 0.1,
+    'figcaption': 0.2, 'caption': 0.15,
+    'span': 0.05, 'div': 0.05
+  }
+  score += tagScores[tagName] || 0
+  
+  // Content characteristics
+  const hasNumbers = /\d/.test(text)
+  const hasCapitalization = /[A-Z]{2,}/.test(text)
+  const hasSpecialChars = /[!?:;]/.test(text)
+  const hasCodeSyntax = /[{}[\]();]/.test(text)
+  const hasUrls = /https?:\/\//.test(text)
+  
+  if (hasNumbers) score += 0.05
+  if (hasCapitalization) score += 0.1
+  if (hasSpecialChars) score += 0.05
+  if (hasCodeSyntax) score += 0.15
+  if (hasUrls) score += 0.1
+  
+  // Position scoring (elements higher on page are often more important)
+  const rect = element.getBoundingClientRect()
+  const viewportHeight = window.innerHeight
+  const relativePosition = rect.top / viewportHeight
+  
+  if (relativePosition < 0.3) score += 0.1 // Top 30% of viewport
+  else if (relativePosition < 0.6) score += 0.05 // Middle 30%
+  
+  // Class and ID hints
+  const className = element.className.toLowerCase()
+  const id = element.id.toLowerCase()
+  const classIdText = `${className} ${id}`
+  
+  const positiveHints = ['content', 'main', 'article', 'important', 'highlight', 'feature', 'title', 'heading']
+  const negativeHints = ['ad', 'advertisement', 'sidebar', 'footer', 'nav', 'menu', 'cookie', 'popup']
+  
+  positiveHints.forEach(hint => {
+    if (classIdText.includes(hint)) score += 0.1
+  })
+  
+  negativeHints.forEach(hint => {
+    if (classIdText.includes(hint)) score -= 0.2
+  })
+  
+  return Math.max(0, Math.min(1, score)) // Clamp between 0 and 1
+}
+
+/**
+ * Scan page and find elements worth tagging - focusing on text content with enhanced quality scoring
  */
 export async function scanPageForTaggableContent(): Promise<ScannableElement[]> {
-  console.log("🔍 Starting AI page scan (text-focused)...")
+  console.log("🔍 Starting enhanced AI page scan...")
   
-  // Select elements that contain meaningful text content
-  const selectors = [
-    "h1", "h2", "h3", "h4", "h5", "h6", // Headers are usually important
-    "p", "article", "section", // Main content
+  // Enhanced selectors with priority ordering
+  const highPrioritySelectors = [
+    "h1", "h2", "h3", // Main headings
+    "article", "section", // Main content areas
     "blockquote", "pre", "code", // Special content
-    "li", "td", "th", // List and table items
-    "figcaption", "caption", // Captions
-    "a[href]", "button", // Interactive elements with text
-    "span", "strong", "em", "b", "i", // Inline text elements
-    "div" // Include divs but we'll extract text nodes from them
+    "p:not([class*='ad']):not([class*='footer']):not([class*='nav'])" // Clean paragraphs
   ]
   
-  const elements = document.querySelectorAll(selectors.join(", "))
-  const candidates: { element: Element; textNode: Text; text: string; xpath: string }[] = []
+  const mediumPrioritySelectors = [
+    "h4", "h5", "h6", // Sub-headings
+    "figcaption", "caption", // Captions
+    "strong", "em", "b", // Emphasized text
+    "a[href]:not([class*='nav']):not([class*='menu'])", // Content links
+    "button:not([class*='nav']):not([class*='menu'])" // Action buttons
+  ]
   
-  // Filter and prepare candidates - focus on text nodes
-  elements.forEach((element) => {
+  const lowPrioritySelectors = [
+    "li", "td", "th", // List and table items
+    "span", "div", // Generic containers
+    "i" // Italic text
+  ]
+  
+  const allSelectors = [...highPrioritySelectors, ...mediumPrioritySelectors, ...lowPrioritySelectors]
+  const elements = document.querySelectorAll(allSelectors.join(", "))
+  
+  const candidates: { 
+    element: Element; 
+    textNode: Text | null; 
+    text: string; 
+    xpath: string; 
+    qualityScore: number;
+    priority: number;
+  }[] = []
+  
+  // Process elements with quality scoring
+  elements.forEach((element, index) => {
     if (!shouldScanElement(element)) return
+    
+    // Determine priority based on selector type
+    let priority = 0
+    const tagName = element.tagName.toLowerCase()
+    if (highPrioritySelectors.some(sel => sel.includes(tagName))) priority = 3
+    else if (mediumPrioritySelectors.some(sel => sel.includes(tagName))) priority = 2
+    else priority = 1
     
     // For div elements, try to find the best text node inside
     if (element.tagName === "DIV") {
       const textNodeInfo = getBestTextNode(element)
-      if (textNodeInfo && textNodeInfo.text.length >= 15 && textNodeInfo.text.length <= 300) {
-        candidates.push({
-          element,
-          textNode: textNodeInfo.textNode,
-          text: textNodeInfo.text,
-          xpath: getEnhancedXPath(textNodeInfo.textNode)
-        })
+      if (textNodeInfo && textNodeInfo.text.length >= 20 && textNodeInfo.text.length <= 400) {
+        const qualityScore = getContentQualityScore(textNodeInfo.text, element)
+        if (qualityScore > 0.2) { // Only include decent quality content
+          candidates.push({
+            element,
+            textNode: textNodeInfo.textNode,
+            text: textNodeInfo.text,
+            xpath: getEnhancedXPath(textNodeInfo.textNode),
+            qualityScore,
+            priority
+          })
+        }
       }
     } else {
       // For other elements, use their direct text content
       const text = getElementText(element)
       
       // Only process elements with meaningful text content
-      if (text.length >= 15 && text.length <= 300) {
-        // Try to find a text node within the element for better highlighting
-        const textNodeInfo = getBestTextNode(element)
-        if (textNodeInfo) {
+      if (text.length >= 15 && text.length <= 400) {
+        const qualityScore = getContentQualityScore(text, element)
+        if (qualityScore > 0.15) { // Only include decent quality content
+          // Try to find a text node within the element for better highlighting
+          const textNodeInfo = getBestTextNode(element)
           candidates.push({
             element,
-            textNode: textNodeInfo.textNode,
-            text: textNodeInfo.text,
-            xpath: getEnhancedXPath(textNodeInfo.textNode)
-          })
-        } else {
-          // Fallback to the element itself if no text nodes found
-          candidates.push({
-            element,
-            textNode: null,
-            text,
-            xpath: getEnhancedXPath(element)
+            textNode: textNodeInfo?.textNode || null,
+            text: textNodeInfo?.text || text,
+            xpath: getEnhancedXPath(textNodeInfo?.textNode || element),
+            qualityScore,
+            priority
           })
         }
       }
     }
   })
   
-  console.log(`📑 Found ${candidates.length} text-focused candidates for AI analysis`)
+  // Sort candidates by quality score and priority, then limit to top candidates
+  candidates.sort((a, b) => {
+    if (a.priority !== b.priority) return b.priority - a.priority
+    return b.qualityScore - a.qualityScore
+  })
+  
+  const topCandidates = candidates.slice(0, 25) // Limit to top 25 candidates
+  
+  console.log(`📑 Found ${topCandidates.length} high-quality candidates for AI analysis`)
   
   const taggableElements: ScannableElement[] = []
   let aiFailureCount = 0
   let useAI = true
   
   // Process candidates in smaller batches for better performance
-  const batchSize = 3
-  for (let i = 0; i < candidates.length && i < 30; i += batchSize) {
-    const batch = candidates.slice(i, i + batchSize)
+  const batchSize = 5
+  for (let i = 0; i < topCandidates.length; i += batchSize) {
+    const batch = topCandidates.slice(i, i + batchSize)
     
     await Promise.all(
-      batch.map(async ({ element, textNode, text, xpath }) => {
+      batch.map(async ({ element, textNode, text, xpath, qualityScore, priority }) => {
         try {
           let result
           
           if (useAI) {
             try {
-              // Try AI classification first
+              // Try AI classification first with enhanced labels
               result = await classifyContent(text)
             } catch (aiError) {
-              console.warn(`AI classification failed, switching to fallback mode`)
+              console.warn(`AI classification failed for: "${text.slice(0, 30)}...", switching to fallback`)
               aiFailureCount++
-              useAI = false // Disable AI for remaining elements
-              result = fallbackClassifier(text)
+              if (aiFailureCount > 3) {
+                useAI = false // Disable AI after multiple failures
+              }
+              result = fallbackClassifier(text, [
+                "important information",
+                "notable content", 
+                "actionable item",
+                "key insight",
+                "educational content",
+                "news or update",
+                "technical documentation",
+                "skip"
+              ])
             }
           } else {
-            // Use rule-based fallback
-            result = fallbackClassifier(text)
+            // Use enhanced rule-based fallback
+            result = fallbackClassifier(text, [
+              "important information",
+              "notable content", 
+              "actionable item",
+              "key insight",
+              "educational content",
+              "news or update",
+              "technical documentation",
+              "skip"
+            ])
           }
           
-          if (isTaggable(result, 0.5)) {
+          // Adjust threshold based on quality score and priority
+          let threshold = 0.4
+          if (priority === 3) threshold = 0.3 // Lower threshold for high priority elements
+          else if (priority === 2) threshold = 0.4
+          else threshold = 0.5 // Higher threshold for low priority elements
+          
+          // Boost confidence for high-quality content
+          const adjustedConfidence = result.scores[0] + (qualityScore * 0.2)
+          
+          if (isTaggable(result, threshold) || adjustedConfidence > threshold) {
             taggableElements.push({
               element: textNode || element, // Prefer text node for highlighting
               text,
               xpath,
-              confidence: result.scores[0],
+              confidence: adjustedConfidence,
               label: result.labels[0]
             })
             
             console.log(
-              `✅ Taggable text: ${text.slice(0, 50)}... (${result.labels[0]}: ${(result.scores[0] * 100).toFixed(1)}%)`
+              `✅ Taggable (Q:${qualityScore.toFixed(2)}, P:${priority}): ${text.slice(0, 50)}... (${result.labels[0]}: ${(adjustedConfidence * 100).toFixed(1)}%)`
             )
           }
         } catch (error) {
@@ -259,17 +391,20 @@ export async function scanPageForTaggableContent(): Promise<ScannableElement[]> 
       })
     )
     
-    // Longer delay between batches to prevent overwhelming
-    if (i + batchSize < candidates.length && i < 27) {
-      await new Promise(resolve => setTimeout(resolve, 300))
+    // Shorter delay between batches for better responsiveness
+    if (i + batchSize < topCandidates.length) {
+      await new Promise(resolve => setTimeout(resolve, 200))
     }
   }
   
   if (aiFailureCount > 0) {
-    console.log(`⚠️ AI failed, used rule-based fallback for remaining elements`)
+    console.log(`⚠️ AI failed ${aiFailureCount} times, ${useAI ? 'continuing with AI' : 'switched to rule-based fallback'}`)
   }
   
-  console.log(`🎯 Found ${taggableElements.length} taggable text elements`)
+  // Sort final results by confidence
+  taggableElements.sort((a, b) => b.confidence - a.confidence)
+  
+  console.log(`🎯 Found ${taggableElements.length} high-quality taggable elements`)
   return taggableElements
 }
 
@@ -293,6 +428,7 @@ export function highlightTaggableElements(
         padding: 2px 4px;
         position: relative;
         display: inline;
+        transition: all 0.3s ease;
       `
       
       // Wrap the text node
@@ -314,6 +450,7 @@ export function highlightTaggableElements(
       elementStyle.style.padding = "2px 4px"
       elementStyle.style.position = "relative"
       elementStyle.style.display = "inline-block"
+      elementStyle.style.transition = "all 0.3s ease"
     }
     
     // Add data attributes for identification
@@ -327,45 +464,47 @@ export function highlightTaggableElements(
     const originalStyle = targetElement.getAttribute("style") || ""
     targetElement.setAttribute("data-tagxi-original-style", originalStyle)
     
-    // Add transition effect
-    const elementStyle = targetElement as HTMLElement
-    elementStyle.style.transition = "all 0.3s ease"
-    
-    // Add a small indicator
+    // Add a small indicator with enhanced styling
     const indicator = document.createElement("div")
     indicator.className = "tagxi-ai-indicator"
     indicator.style.cssText = `
       position: absolute;
-      top: -8px;
-      right: -8px;
-      width: 18px;
-      height: 18px;
-      background: ${tagColor};
+      top: -10px;
+      right: -10px;
+      width: 20px;
+      height: 20px;
+      background: linear-gradient(135deg, ${tagColor}, ${tagColor}dd);
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 9px;
+      font-size: 10px;
       font-weight: bold;
       color: #000;
       z-index: 9999;
       cursor: pointer;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-      transition: transform 0.2s ease;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      transition: all 0.2s ease;
       border: 2px solid white;
     `
     indicator.textContent = "🤖"
-    indicator.title = `AI suggested (${(confidence * 100).toFixed(1)}% confidence) - Click to tag`
+    indicator.title = `AI suggested: ${label} (${(confidence * 100).toFixed(1)}% confidence) - Click to tag`
     
-    // Add hover effect
+    // Add enhanced hover effects
     indicator.addEventListener("mouseenter", () => {
-      indicator.style.transform = "scale(1.1)"
+      indicator.style.transform = "scale(1.2)"
+      indicator.style.boxShadow = "0 4px 12px rgba(0,0,0,0.4)"
+      const elementStyle = targetElement as HTMLElement
       elementStyle.style.backgroundColor = `${tagColor}60`
+      elementStyle.style.transform = "scale(1.02)"
     })
     
     indicator.addEventListener("mouseleave", () => {
       indicator.style.transform = "scale(1)"
+      indicator.style.boxShadow = "0 2px 8px rgba(0,0,0,0.3)"
+      const elementStyle = targetElement as HTMLElement
       elementStyle.style.backgroundColor = `${tagColor}40`
+      elementStyle.style.transform = "scale(1)"
     })
     
     // Add click handler for quick tagging
@@ -438,64 +577,81 @@ async function handleAITagSuggestion(
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.5);
+    background: rgba(0, 0, 0, 0.6);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 99999;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    backdrop-filter: blur(4px);
   `
   
   const modalContent = document.createElement("div")
   modalContent.style.cssText = `
     background: white;
-    padding: 24px;
-    border-radius: 12px;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-    max-width: 400px;
+    padding: 28px;
+    border-radius: 16px;
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4);
+    max-width: 450px;
     width: 90%;
     max-height: 80vh;
     overflow-y: auto;
+    transform: scale(0.9);
+    animation: modalAppear 0.3s ease forwards;
   `
   
+  // Add animation keyframes
+  const style = document.createElement("style")
+  style.textContent = `
+    @keyframes modalAppear {
+      to {
+        transform: scale(1);
+      }
+    }
+  `
+  document.head.appendChild(style)
+  
   modalContent.innerHTML = `
-    <div style="margin-bottom: 16px;">
-      <h3 style="margin: 0 0 8px 0; font-size: 18px; font-weight: 600; color: #333;">
+    <div style="margin-bottom: 20px;">
+      <h3 style="margin: 0 0 10px 0; font-size: 20px; font-weight: 700; color: #1a1a1a; display: flex; align-items: center; gap: 8px;">
         🤖 AI Tag Suggestion
+        <span style="background: ${tagColor}30; color: ${tagColor}; padding: 4px 8px; border-radius: 12px; font-size: 12px; font-weight: 600; text-transform: uppercase;">
+          ${label}
+        </span>
       </h3>
-      <p style="margin: 0; color: #666; font-size: 14px;">
-        AI classified this as <strong>${label}</strong> content (${(confidence * 100).toFixed(1)}% confidence)
+      <p style="margin: 0; color: #666; font-size: 14px; line-height: 1.5;">
+        AI classified this content with <strong>${(confidence * 100).toFixed(1)}% confidence</strong>
       </p>
     </div>
     
-    <div style="margin-bottom: 16px; padding: 12px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid ${tagColor};">
-      <p style="margin: 0; font-size: 14px; color: #555; line-height: 1.4;">
-        "${text.slice(0, 150)}${text.length > 150 ? '...' : ''}"
+    <div style="margin-bottom: 20px; padding: 16px; background: linear-gradient(135deg, #f8f9fa, #e9ecef); border-radius: 12px; border-left: 4px solid ${tagColor};">
+      <p style="margin: 0; font-size: 14px; color: #495057; line-height: 1.5; font-style: italic;">
+        "${text.slice(0, 200)}${text.length > 200 ? '...' : ''}"
       </p>
     </div>
     
-    <div style="margin-bottom: 16px;">
-      <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #333; font-size: 14px;">
+    <div style="margin-bottom: 20px;">
+      <label style="display: block; margin-bottom: 10px; font-weight: 600; color: #1a1a1a; font-size: 14px;">
         Tag someone:
       </label>
       <input 
         type="text" 
         id="tagxi-ai-username-input"
         placeholder="@username"
-        style="width: 100%; padding: 10px 12px; border: 2px solid #e1e5e9; border-radius: 8px; font-size: 14px; outline: none; transition: border-color 0.2s;"
+        style="width: 100%; padding: 12px 16px; border: 2px solid #e1e5e9; border-radius: 10px; font-size: 14px; outline: none; transition: all 0.2s; background: #fafbfc;"
       />
     </div>
     
     <div style="display: flex; gap: 12px; justify-content: flex-end;">
       <button 
         id="tagxi-ai-cancel-btn"
-        style="padding: 8px 16px; border: 1px solid #ddd; background: white; border-radius: 6px; cursor: pointer; font-size: 14px; color: #666; transition: all 0.2s;"
+        style="padding: 10px 20px; border: 2px solid #e1e5e9; background: white; border-radius: 8px; cursor: pointer; font-size: 14px; color: #6c757d; transition: all 0.2s; font-weight: 500;"
       >
         Cancel
       </button>
       <button 
         id="tagxi-ai-tag-btn"
-        style="padding: 8px 16px; border: none; background: ${tagColor}; color: #000; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.2s;"
+        style="padding: 10px 20px; border: none; background: linear-gradient(135deg, ${tagColor}, ${tagColor}dd); color: #000; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; transition: all 0.2s; box-shadow: 0 2px 8px ${tagColor}40;"
       >
         Tag Content
       </button>
@@ -512,43 +668,55 @@ async function handleAITagSuggestion(
   
   input.focus()
   
-  // Add input styling on focus
+  // Add enhanced input styling on focus
   input.addEventListener("focus", () => {
     input.style.borderColor = tagColor
+    input.style.backgroundColor = "#ffffff"
+    input.style.boxShadow = `0 0 0 3px ${tagColor}20`
   })
   
   input.addEventListener("blur", () => {
     input.style.borderColor = "#e1e5e9"
+    input.style.backgroundColor = "#fafbfc"
+    input.style.boxShadow = "none"
   })
   
-  // Add button hover effects
+  // Add enhanced button hover effects
   tagBtn.addEventListener("mouseenter", () => {
-    tagBtn.style.opacity = "0.9"
-    tagBtn.style.transform = "translateY(-1px)"
+    tagBtn.style.transform = "translateY(-2px)"
+    tagBtn.style.boxShadow = `0 4px 16px ${tagColor}60`
   })
   
   tagBtn.addEventListener("mouseleave", () => {
-    tagBtn.style.opacity = "1"
     tagBtn.style.transform = "translateY(0)"
+    tagBtn.style.boxShadow = `0 2px 8px ${tagColor}40`
   })
   
   cancelBtn.addEventListener("mouseenter", () => {
-    cancelBtn.style.backgroundColor = "#f5f5f5"
+    cancelBtn.style.backgroundColor = "#f8f9fa"
+    cancelBtn.style.borderColor = "#adb5bd"
   })
   
   cancelBtn.addEventListener("mouseleave", () => {
     cancelBtn.style.backgroundColor = "white"
+    cancelBtn.style.borderColor = "#e1e5e9"
   })
   
   const closeModal = () => {
-    document.body.removeChild(modal)
+    modal.style.opacity = "0"
+    modalContent.style.transform = "scale(0.9)"
+    setTimeout(() => {
+      document.body.removeChild(modal)
+      document.head.removeChild(style)
+    }, 200)
   }
   
   const handleTag = async () => {
     const username = input.value.trim().replace(/^@/, "") // Remove @ if present
     
     if (!username) {
-      input.style.borderColor = "#e74c3c"
+      input.style.borderColor = "#dc3545"
+      input.style.boxShadow = "0 0 0 3px #dc354520"
       input.focus()
       return
     }
@@ -593,16 +761,17 @@ async function handleAITagSuggestion(
         const indicator = element.querySelector(".tagxi-ai-indicator")
         if (indicator) indicator.remove()
         
-        // Convert AI highlight to user highlight
+        // Convert AI highlight to user highlight with enhanced styling
         const htmlElement = element as HTMLElement
         htmlElement.style.backgroundColor = tagColor
         htmlElement.style.border = `2px solid ${tagColor}`
-        htmlElement.style.borderRadius = "4px"
-        htmlElement.style.padding = "2px 4px"
+        htmlElement.style.borderRadius = "6px"
+        htmlElement.style.padding = "4px 6px"
         htmlElement.style.cursor = "pointer"
+        htmlElement.style.transition = "all 0.3s ease"
         htmlElement.setAttribute("data-tagxi-tagged-by", username)
         
-        // Add hover tooltip for the newly tagged content
+        // Add enhanced hover tooltip for the newly tagged content
         let tooltip: HTMLElement | null = null
         
         const createTooltip = () => {
@@ -610,34 +779,53 @@ async function handleAITagSuggestion(
           tooltip.className = "tagxi-hover-tooltip"
           tooltip.style.cssText = `
             position: absolute;
-            top: -35px;
+            top: -40px;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.9);
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0.8));
             color: white;
-            padding: 6px 10px;
-            border-radius: 6px;
+            padding: 8px 12px;
+            border-radius: 8px;
             font-size: 12px;
-            font-weight: 500;
+            font-weight: 600;
             white-space: nowrap;
             z-index: 10000;
             pointer-events: none;
             opacity: 0;
-            transition: opacity 0.2s ease;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
           `
           tooltip.textContent = `👤 Tagged by @${username}`
+          
+          // Add arrow
+          const arrow = document.createElement("div")
+          arrow.style.cssText = `
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+            border-top: 6px solid rgba(0, 0, 0, 0.9);
+          `
+          tooltip.appendChild(arrow)
+          
           return tooltip
         }
         
         htmlElement.addEventListener("mouseenter", () => {
           tooltip = createTooltip()
           htmlElement.appendChild(tooltip)
+          htmlElement.style.transform = "scale(1.02)"
           requestAnimationFrame(() => {
             if (tooltip) tooltip.style.opacity = "1"
           })
         })
         
         htmlElement.addEventListener("mouseleave", () => {
+          htmlElement.style.transform = "scale(1)"
           if (tooltip) {
             tooltip.style.opacity = "0"
             setTimeout(() => {
@@ -645,7 +833,7 @@ async function handleAITagSuggestion(
                 tooltip.parentNode.removeChild(tooltip)
               }
               tooltip = null
-            }, 200)
+            }, 300)
           }
         })
         

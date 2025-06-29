@@ -18,8 +18,7 @@ let sessionModelCache: {
 }
 
 /**
- * Load a lightweight classifier model suitable for browser extensions
- * Models are cached in IndexedDB and session memory for optimal performance
+ * Load the zero-shot classifier model once with enhanced caching
  */
 export async function loadClassifier() {
   // Check session cache first (fastest)
@@ -46,15 +45,14 @@ export async function loadClassifier() {
   try {
     console.log("🤖 Loading AI classifier (will cache in IndexedDB)...")
     
-    // Use a smaller, more reliable model that works better in browser extensions
-    // This model is specifically designed for text classification and is smaller
+    // Use zero-shot classification for better content analysis
     classifier = await pipeline(
-      "text-classification",
-      "Xenova/distilbert-base-uncased-finetuned-sst-2-english",
+      "zero-shot-classification",
+      "Xenova/distilbert-base-uncased-mnli",
       {
         // Configure for browser environment with IndexedDB caching
         device: 'webgpu',
-        dtype: 'fp32',
+        dtype: 'fp16',
         cache_dir: env.cacheDir, // Use IndexedDB for persistent caching
         local_files_only: false, // Allow downloading if not cached
         use_cache: true // Enable caching
@@ -74,8 +72,8 @@ export async function loadClassifier() {
     try {
       console.log("🔄 Retrying with CPU fallback...")
       classifier = await pipeline(
-        "text-classification",
-        "Xenova/distilbert-base-uncased-finetuned-sst-2-english",
+        "zero-shot-classification",
+        "Xenova/distilbert-base-uncased-mnli",
         {
           device: 'cpu',
           dtype: 'fp32',
@@ -92,29 +90,7 @@ export async function loadClassifier() {
       return classifier
     } catch (fallbackError) {
       console.error("❌ CPU fallback also failed:", fallbackError)
-      
-      // Try an even simpler model as last resort
-      try {
-        console.log("🔄 Trying lightweight model as last resort...")
-        classifier = await pipeline(
-          "sentiment-analysis",
-          "Xenova/distilbert-base-uncased-finetuned-sst-2-english",
-          {
-            cache_dir: env.cacheDir,
-            local_files_only: false,
-            use_cache: true
-          }
-        )
-        
-        sessionModelCache.model = classifier
-        sessionModelCache.timestamp = Date.now()
-        
-        console.log("✅ Lightweight AI classifier loaded and cached")
-        return classifier
-      } catch (lastResortError) {
-        console.error("❌ All AI models failed:", lastResortError)
-        throw new Error(`Failed to load any AI classifier: ${lastResortError.message}`)
-      }
+      throw new Error(`Failed to load AI classifier: ${fallbackError.message}`)
     }
   } finally {
     isLoading = false
@@ -143,45 +119,32 @@ export function getCacheStatus() {
 }
 
 /**
- * Classify text content using the loaded model
- * Since we're using sentiment analysis, we'll adapt it for content importance
+ * Classify text content using the loaded model with enhanced labels
  */
 export async function classifyContent(
   text: string,
-  labels: string[] = ["important", "notable", "skip"]
+  labels: string[] = [
+    "important information",
+    "notable content", 
+    "actionable item",
+    "key insight",
+    "educational content",
+    "news or update",
+    "technical documentation",
+    "user interface element",
+    "advertisement",
+    "navigation element",
+    "skip"
+  ]
 ) {
   try {
     const model = await loadClassifier()
-    
-    // Use sentiment analysis to determine content importance
-    const result = await model(text)
-    
-    // Convert sentiment to importance classification
-    const sentiment = result[0]
-    const score = sentiment.score
-    const label = sentiment.label
-    
-    // Map sentiment to our classification system
-    if (label === "POSITIVE" && score > 0.8) {
-      return {
-        labels: ["important", "notable", "skip"],
-        scores: [0.9, 0.08, 0.02]
-      }
-    } else if (label === "POSITIVE" && score > 0.6) {
-      return {
-        labels: ["notable", "important", "skip"],
-        scores: [0.7, 0.2, 0.1]
-      }
-    } else {
-      return {
-        labels: ["skip", "notable", "important"],
-        scores: [0.8, 0.15, 0.05]
-      }
-    }
+    const result = await model(text, labels)
+    return result
   } catch (error) {
     console.error("❌ Classification failed:", error)
-    // Return a fallback classification using rule-based approach
-    return fallbackClassifier(text)
+    // Return a fallback classification using enhanced rule-based approach
+    return fallbackClassifier(text, labels)
   }
 }
 
@@ -195,105 +158,165 @@ export function isTaggable(
   const topLabel = result.labels[0]
   const topScore = result.scores[0]
   
-  return (
-    (topLabel === "important" || topLabel === "notable") && 
-    topScore > threshold
-  )
+  // Define which labels are considered taggable
+  const taggableLabels = [
+    "important information",
+    "notable content", 
+    "actionable item",
+    "key insight",
+    "educational content",
+    "news or update",
+    "technical documentation"
+  ]
+  
+  return taggableLabels.includes(topLabel) && topScore > threshold
 }
 
 /**
  * Enhanced rule-based fallback classifier for when AI fails
  */
-export function fallbackClassifier(text: string): { labels: string[], scores: number[] } {
+export function fallbackClassifier(text: string, labels: string[]): { labels: string[], scores: number[] } {
   const importantKeywords = [
     'important', 'critical', 'urgent', 'breaking', 'alert',
     'announcement', 'update', 'new', 'release', 'launch',
     'warning', 'error', 'issue', 'problem', 'fix',
-    'security', 'vulnerability', 'patch', 'hotfix'
+    'security', 'vulnerability', 'patch', 'hotfix',
+    'deadline', 'required', 'mandatory', 'must'
   ]
   
   const notableKeywords = [
     'interesting', 'note', 'tip', 'advice', 'guide',
     'tutorial', 'how to', 'learn', 'discover', 'feature',
     'improvement', 'enhancement', 'optimization', 'performance',
-    'best practice', 'recommendation', 'suggestion'
+    'best practice', 'recommendation', 'suggestion',
+    'insight', 'analysis', 'research', 'study'
+  ]
+  
+  const actionableKeywords = [
+    'click', 'download', 'install', 'configure', 'setup',
+    'follow', 'complete', 'submit', 'register', 'sign up',
+    'login', 'verify', 'confirm', 'activate', 'enable',
+    'disable', 'delete', 'remove', 'add', 'create'
+  ]
+  
+  const educationalKeywords = [
+    'explain', 'definition', 'concept', 'theory', 'principle',
+    'example', 'demonstration', 'illustration', 'case study',
+    'lesson', 'course', 'training', 'workshop', 'seminar'
+  ]
+  
+  const newsKeywords = [
+    'today', 'yesterday', 'recently', 'latest', 'current',
+    'trending', 'popular', 'viral', 'happening', 'event',
+    'conference', 'meeting', 'announcement', 'press release'
   ]
   
   const skipKeywords = [
-    'advertisement', 'ad', 'sponsored', 'promotion',
-    'cookie', 'privacy policy', 'terms of service',
-    'footer', 'header', 'navigation', 'menu'
+    'advertisement', 'ad', 'sponsored', 'promotion', 'sale',
+    'cookie', 'privacy policy', 'terms of service', 'legal',
+    'footer', 'header', 'navigation', 'menu', 'sidebar',
+    'breadcrumb', 'pagination', 'loading', 'placeholder'
   ]
   
   const lowerText = text.toLowerCase()
   
-  // Check for skip keywords first
-  const hasSkipKeywords = skipKeywords.some(keyword => 
-    lowerText.includes(keyword)
-  )
-  
-  if (hasSkipKeywords) {
-    return {
-      labels: ["skip", "notable", "important"],
-      scores: [0.9, 0.07, 0.03]
-    }
-  }
-  
-  // Check for important keywords
+  // Calculate keyword matches
   const importantMatches = importantKeywords.filter(keyword => 
     lowerText.includes(keyword)
   ).length
   
-  // Check for notable keywords
   const notableMatches = notableKeywords.filter(keyword => 
     lowerText.includes(keyword)
   ).length
   
-  // Calculate scores based on keyword matches
-  const importantScore = Math.min(0.9, 0.3 + (importantMatches * 0.2))
-  const notableScore = Math.min(0.8, 0.2 + (notableMatches * 0.15))
+  const actionableMatches = actionableKeywords.filter(keyword => 
+    lowerText.includes(keyword)
+  ).length
+  
+  const educationalMatches = educationalKeywords.filter(keyword => 
+    lowerText.includes(keyword)
+  ).length
+  
+  const newsMatches = newsKeywords.filter(keyword => 
+    lowerText.includes(keyword)
+  ).length
+  
+  const skipMatches = skipKeywords.filter(keyword => 
+    lowerText.includes(keyword)
+  ).length
   
   // Check text characteristics
   const hasNumbers = /\d/.test(text)
   const hasCapitalization = /[A-Z]{2,}/.test(text)
   const hasExclamation = /[!?]/.test(text)
+  const hasCodeSyntax = /[{}[\]();]/.test(text)
+  const hasUrls = /https?:\/\//.test(text)
   const isShort = text.length < 50
   const isLong = text.length > 200
   
-  // Adjust scores based on text characteristics
-  let finalImportantScore = importantScore
-  let finalNotableScore = notableScore
+  // Calculate base scores
+  let scores = {
+    "important information": Math.min(0.9, 0.2 + (importantMatches * 0.15)),
+    "notable content": Math.min(0.8, 0.15 + (notableMatches * 0.12)),
+    "actionable item": Math.min(0.8, 0.1 + (actionableMatches * 0.15)),
+    "key insight": Math.min(0.7, 0.1 + (notableMatches * 0.1) + (educationalMatches * 0.1)),
+    "educational content": Math.min(0.8, 0.1 + (educationalMatches * 0.15)),
+    "news or update": Math.min(0.7, 0.1 + (newsMatches * 0.12)),
+    "technical documentation": Math.min(0.7, 0.05 + (hasCodeSyntax ? 0.2 : 0)),
+    "user interface element": Math.min(0.6, 0.05 + (actionableMatches * 0.05)),
+    "advertisement": Math.min(0.9, skipMatches * 0.2),
+    "navigation element": Math.min(0.8, skipMatches * 0.15),
+    "skip": Math.min(0.9, 0.1 + (skipMatches * 0.2))
+  }
   
+  // Adjust scores based on text characteristics
   if (hasExclamation || hasCapitalization) {
-    finalImportantScore += 0.1
+    scores["important information"] += 0.1
+    scores["news or update"] += 0.05
   }
   
   if (hasNumbers && !isLong) {
-    finalNotableScore += 0.1
+    scores["technical documentation"] += 0.1
+    scores["actionable item"] += 0.05
+  }
+  
+  if (hasCodeSyntax) {
+    scores["technical documentation"] += 0.2
+    scores["educational content"] += 0.1
+  }
+  
+  if (hasUrls) {
+    scores["actionable item"] += 0.1
+    scores["notable content"] += 0.05
   }
   
   if (isShort && !hasExclamation) {
-    finalImportantScore *= 0.7
-    finalNotableScore *= 0.8
+    // Reduce scores for very short text without emphasis
+    Object.keys(scores).forEach(key => {
+      if (key !== "skip" && key !== "user interface element") {
+        scores[key] *= 0.7
+      }
+    })
   }
   
-  const skipScore = 1 - Math.max(finalImportantScore, finalNotableScore)
+  if (isLong) {
+    scores["educational content"] += 0.1
+    scores["technical documentation"] += 0.05
+  }
   
-  // Return classification based on highest score
-  if (finalImportantScore > finalNotableScore && finalImportantScore > skipScore) {
-    return {
-      labels: ["important", "notable", "skip"],
-      scores: [finalImportantScore, finalNotableScore, skipScore]
-    }
-  } else if (finalNotableScore > skipScore) {
-    return {
-      labels: ["notable", "important", "skip"],
-      scores: [finalNotableScore, finalImportantScore, skipScore]
-    }
-  } else {
-    return {
-      labels: ["skip", "notable", "important"],
-      scores: [skipScore, finalNotableScore, finalImportantScore]
-    }
+  // Normalize scores to ensure they sum to approximately 1
+  const totalScore = Object.values(scores).reduce((sum, score) => sum + score, 0)
+  if (totalScore > 0) {
+    Object.keys(scores).forEach(key => {
+      scores[key] = scores[key] / totalScore
+    })
+  }
+  
+  // Sort by score and return in the expected format
+  const sortedEntries = Object.entries(scores).sort((a, b) => b[1] - a[1])
+  
+  return {
+    labels: sortedEntries.map(([label]) => label),
+    scores: sortedEntries.map(([, score]) => score)
   }
 }
