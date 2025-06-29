@@ -69,10 +69,10 @@ const TagxiContentScript = () => {
   // Check if current site is blocked
   const isCurrentSiteBlocked = () => {
     const currentUrl = window.location.href
-    return blockedWebsites.some(blockedSite => {
+    return blockedWebsites.some((blockedSite) => {
       try {
         // Handle both full URLs and domain patterns
-        if (blockedSite.startsWith('http')) {
+        if (blockedSite.startsWith("http")) {
           return currentUrl.startsWith(blockedSite)
         } else {
           // Treat as domain pattern
@@ -85,6 +85,52 @@ const TagxiContentScript = () => {
     })
   }
 
+  // Helper function to check if click is within TagXi components
+  const isClickWithinTagXiComponents = (
+    target: EventTarget | null
+  ): boolean => {
+    if (!target || !(target instanceof Element)) return false
+
+    // Check if the target or any of its parents is within our shadow host
+    const shadowHost = document.getElementById(getShadowHostId())
+    if (!shadowHost) return false
+
+    // Check if the click is within the shadow host itself
+    if (shadowHost.contains(target)) return true
+
+    // Check for our component specific IDs and classes
+    const element = target as Element
+
+    // Check for TagButton
+    if (element.id === "tagxi-icon" || element.closest("#tagxi-icon")) {
+      return true
+    }
+
+    // Check for TagInput and its dropdown (look for our fixed positioned elements)
+    const tagInputSelectors = [
+      '[style*="position: fixed"]', // Our fixed positioned components
+      '[class*="bg-white"][class*="border"][class*="shadow"]', // TagInput styling
+      '[class*="rounded-lg"][class*="shadow-xl"]' // Dropdown styling
+    ]
+
+    for (const selector of tagInputSelectors) {
+      if (element.matches?.(selector) || element.closest?.(selector)) {
+        // Additional check to make sure it's our component by checking z-index
+        const computedStyle = window.getComputedStyle(
+          element.closest?.(selector) || element
+        )
+        if (
+          computedStyle.zIndex === "999999" ||
+          computedStyle.zIndex === "999998"
+        ) {
+          return true
+        }
+      }
+    }
+
+    return false
+  }
+
   // Load user settings - ONLY ONCE
   const loadSettings = async () => {
     // Prevent multiple simultaneous loads
@@ -92,41 +138,52 @@ const TagxiContentScript = () => {
       console.log("⚠️ Content Script: Settings already loaded, skipping...")
       return
     }
-    
+
     settingsLoadedRef.current = true
-    
+
     try {
       console.log("🔧 Content Script: Loading user settings (one-time)...")
-      
+
       // Get settings and auth info
       const [settingsResponse, authResponse] = await Promise.all([
         sendToBackground({ name: "get-settings" }),
         sendToBackground({ name: "get-auth" })
       ])
-      
+
       // Handle settings
       if (settingsResponse.success && settingsResponse.data) {
         const settings = settingsResponse.data
-        
+
         if (settings.extensionSettings?.tag_color) {
           setTagColor(settings.extensionSettings.tag_color)
-          console.log("✅ Content Script: Tag color loaded:", settings.extensionSettings.tag_color)
+          console.log(
+            "✅ Content Script: Tag color loaded:",
+            settings.extensionSettings.tag_color
+          )
         }
-        
+
         if (settings.blockedWebsites) {
           setBlockedWebsites(settings.blockedWebsites)
-          console.log("✅ Content Script: Blocked websites loaded:", settings.blockedWebsites)
+          console.log(
+            "✅ Content Script: Blocked websites loaded:",
+            settings.blockedWebsites
+          )
         }
-        
-        console.log(`📦 Content Script: Settings source: ${settingsResponse.source || 'unknown'}`)
+
+        console.log(
+          `📦 Content Script: Settings source: ${settingsResponse.source || "unknown"}`
+        )
       }
-      
+
       // Handle authentication
       if (authResponse?.redirect?.data?.user?.username) {
         setCurrentUsername(authResponse.redirect.data.user.username)
-        console.log("✅ Content Script: Current user loaded:", authResponse.redirect.data.user.username)
+        console.log(
+          "✅ Content Script: Current user loaded:",
+          authResponse.redirect.data.user.username
+        )
       }
-      
+
       setSettingsLoaded(true)
       console.log("✅ Content Script: Settings and auth loaded successfully")
     } catch (error) {
@@ -142,23 +199,29 @@ const TagxiContentScript = () => {
       console.log("⚠️ Content Script: Friends already loaded, skipping...")
       return
     }
-    
+
     friendsLoadedRef.current = true
-    
+
     try {
       console.log("👥 Content Script: Loading user friends (one-time)...")
-      
+
       const friendsResponse = await sendToBackground({ name: "get-friends" })
-      
+
       if (friendsResponse.success && friendsResponse.data) {
         setFriends(friendsResponse.data)
-        console.log("✅ Content Script: Friends loaded:", friendsResponse.data.length, "friends")
-        console.log(`📦 Content Script: Friends source: ${friendsResponse.source || 'unknown'}`)
+        console.log(
+          "✅ Content Script: Friends loaded:",
+          friendsResponse.data.length,
+          "friends"
+        )
+        console.log(
+          `📦 Content Script: Friends source: ${friendsResponse.source || "unknown"}`
+        )
       } else {
         console.log("⚠️ Content Script: No friends found or failed to load")
         setFriends([]) // Set empty array as fallback
       }
-      
+
       setFriendsLoaded(true)
     } catch (error) {
       console.error("❌ Content Script: Error loading friends:", error)
@@ -173,49 +236,60 @@ const TagxiContentScript = () => {
     selectionRef.current = {}
   }
 
-  const handleMouseUp = useCallback((e: MouseEvent) => {
-    // Don't proceed if settings not loaded or site is blocked
-    if (!settingsLoaded || isCurrentSiteBlocked()) {
-      return
-    }
-    
-    if ((e.target as HTMLElement).id === "tagxi-icon") {
-      return
-    }
-    const selection = window.getSelection()
-    if (!selection || selection.isCollapsed) {
-      setShowIcon(false)
+  const handleMouseUp = useCallback(
+    (e: MouseEvent) => {
+      // Don't proceed if settings not loaded or site is blocked
+      if (!settingsLoaded || isCurrentSiteBlocked()) {
+        return
+      }
+
+      // FIXED: Check if click is within our TagXi components - if so, ignore it
+      if (isClickWithinTagXiComponents(e.target)) {
+        console.log(
+          "👆 Content Script: Click within TagXi component, ignoring..."
+        )
+        return
+      }
+
+      const selection = window.getSelection()
+      if (!selection || selection.isCollapsed) {
+        // Only reset if we're not currently showing input (to prevent closing during interaction)
+        if (!showInput) {
+          setShowIcon(false)
+        }
+        return
+      }
+
+      setLastScroll({
+        y: window.scrollY,
+        x: window.scrollX
+      })
+
+      const range = selection.getRangeAt(0)
+      const rect = range.getBoundingClientRect()
+
+      // Information to store
+      // store containers xpath -> if text is selected in more than two html elements
+      // use offset to calculate the start(container) and end(end container)
+      const selectedText = range.toString()
+      const startContainerXPath = getXPathForElement(range.startContainer)
+      const endContainerXPath = getXPathForElement(range.endContainer)
+      const startOffset = range.startOffset
+      const endOffset = range.endOffset
+      selectionRef.current = {
+        startContainerXPath,
+        endContainerXPath,
+        startOffset,
+        endOffset
+      }
+
+      setIconPosition({ top: rect.top - 30, left: rect.left })
+      setLastScroll({ y: window.scrollY, x: window.scrollX })
+      setShowIcon(true)
       setShowInput(false)
-      return
-    }
-    setLastScroll({
-      y: window.scrollY,
-      x: window.scrollX
-    })
-
-    const range = selection.getRangeAt(0)
-    const rect = range.getBoundingClientRect()
-
-    // Information to store
-    // store containers xpath -> if text is selected in more than two html elements
-    // use offset to calculate the start(container) and end(end container)
-    const selectedText = range.toString()
-    const startContainerXPath = getXPathForElement(range.startContainer)
-    const endContainerXPath = getXPathForElement(range.endContainer)
-    const startOffset = range.startOffset
-    const endOffset = range.endOffset
-    selectionRef.current = {
-      startContainerXPath,
-      endContainerXPath,
-      startOffset,
-      endOffset
-    }
-
-    setIconPosition({ top: rect.top - 30, left: rect.left })
-    setLastScroll({ y: window.scrollY, x: window.scrollX })
-    setShowIcon(true)
-    setShowInput(false)
-  }, [settingsLoaded, blockedWebsites])
+    },
+    [settingsLoaded, blockedWebsites, showInput] // Added showInput dependency
+  )
 
   const handleIconClick = useCallback(() => {
     setShowInput(true)
@@ -229,7 +303,7 @@ const TagxiContentScript = () => {
         showToast("warning", "TagXi is disabled on this website")
         return
       }
-      
+
       if (
         IGNORE_LIST.filter((IGNORE) => window.location.href.startsWith(IGNORE))
           .length
@@ -263,7 +337,7 @@ const TagxiContentScript = () => {
               startOffset,
               endOffset
             } = selectionRef.current
-            
+
             // FIXED: Use the correct function calls with proper parameters
             if (startContainerXPath === endContainerXPath) {
               selectAndHighlightElement(
@@ -319,18 +393,23 @@ const TagxiContentScript = () => {
   const loadExistingTags = async () => {
     // Don't load tags if settings not loaded or site is blocked
     if (!settingsLoaded || isCurrentSiteBlocked()) {
-      console.log("🚫 Content Script: Skipping tag loading - settings not loaded or site blocked")
+      console.log(
+        "🚫 Content Script: Skipping tag loading - settings not loaded or site blocked"
+      )
       return
     }
-    
+
     if (
       IGNORE_LIST.filter((IGNORE) => window.location.href.startsWith(IGNORE))
         .length
     )
       return
-    
-    console.log("🏷️ Content Script: Loading existing tags with color:", tagColor)
-    
+
+    console.log(
+      "🏷️ Content Script: Loading existing tags with color:",
+      tagColor
+    )
+
     try {
       const response = await sendToBackground({
         name: "get-tag",
@@ -338,7 +417,7 @@ const TagxiContentScript = () => {
       })
       if (response.success && response.data) {
         let successCount = 0
-        
+
         response.data.forEach(({ metadata, owner }) => {
           const {
             start_tag_offset,
@@ -358,17 +437,17 @@ const TagxiContentScript = () => {
               )
             } else {
               selectAndHighlightElement(
-                start_tag_xpath, 
-                start_tag_offset, 
-                undefined, 
-                tagColor, 
+                start_tag_xpath,
+                start_tag_offset,
+                undefined,
+                tagColor,
                 owner
               )
               selectAndHighlightElement(
-                end_tag_xpath, 
-                0, 
-                end_tag_offset, 
-                tagColor, 
+                end_tag_xpath,
+                0,
+                end_tag_offset,
+                tagColor,
                 owner
               )
             }
@@ -377,9 +456,11 @@ const TagxiContentScript = () => {
             console.warn("Failed to highlight tag:", error)
           }
         })
-        
+
         if (successCount > 0) {
-          console.log(`✅ Content Script: Successfully loaded ${successCount} tags with color ${tagColor}`)
+          console.log(
+            `✅ Content Script: Successfully loaded ${successCount} tags with color ${tagColor}`
+          )
         }
       } else if (!response.success && response.authenticationRequired) {
         showToast("warning", "Please sign in to load and save tags")
@@ -415,20 +496,20 @@ const TagxiContentScript = () => {
   useEffect(() => {
     const initializeExtension = async () => {
       console.log("🚀 Content Script: Initializing TagXi extension...")
-      
+
       // Step 1: Load settings ONLY if not already loaded
       if (!settingsLoadedRef.current) {
         await loadSettings()
       }
-      
+
       // Step 2: Load friends ONLY if not already loaded
       if (!friendsLoadedRef.current) {
         await loadFriends()
       }
     }
-    
+
     initializeExtension()
-    
+
     document.addEventListener("mouseup", handleMouseUp)
     document.addEventListener("scroll", removeTagAndInputOnScroll)
     document.addEventListener("keydown", handleKeyboardInputs)
@@ -442,7 +523,9 @@ const TagxiContentScript = () => {
   // Load existing tags when settings are loaded - ONLY ONCE
   useEffect(() => {
     if (settingsLoaded && !isCurrentSiteBlocked()) {
-      console.log("⚙️ Content Script: Settings loaded, now loading existing tags...")
+      console.log(
+        "⚙️ Content Script: Settings loaded, now loading existing tags..."
+      )
       loadExistingTags()
     }
   }, [settingsLoaded]) // Removed tagColor dependency to prevent reloading

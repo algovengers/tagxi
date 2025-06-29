@@ -24,9 +24,45 @@ const TagInput: React.FC<TagInputProps> = ({
   const [selectedIndex, setSelectedIndex] = useState(-1)
   const [showDropdown, setShowDropdown] = useState(false)
   const [selectedFriend, setSelectedFriend] = useState<Friend | null>(null)
+  const [currentTag, setCurrentTag] = useState<{start: number, end: number, query: string} | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const isSelectingRef = useRef(false) // Track if we're in the middle of selecting
+
+  // Function to find the current @ tag being typed
+  const findCurrentTag = (text: string, cursorPos: number) => {
+    // Look backwards from cursor to find @
+    let atIndex = -1
+    for (let i = cursorPos - 1; i >= 0; i--) {
+      if (text[i] === '@') {
+        atIndex = i
+        break
+      }
+      if (text[i] === ' ') {
+        break // Space before @ means we're not in a tag
+      }
+    }
+
+    if (atIndex === -1) return null
+
+    // Look forward from @ to find end of tag (space or end of string)
+    let endIndex = text.length
+    for (let i = atIndex + 1; i < text.length; i++) {
+      if (text[i] === ' ') {
+        endIndex = i
+        break
+      }
+    }
+
+    // Extract the tag content (without @)
+    const tagContent = text.slice(atIndex + 1, endIndex)
+    
+    return {
+      start: atIndex,
+      end: endIndex,
+      query: tagContent
+    }
+  }
 
   // Filter friends when input changes
   useEffect(() => {
@@ -34,13 +70,13 @@ const TagInput: React.FC<TagInputProps> = ({
       inputRef.current?.focus()
     }
 
-    if (inputValue.trim() === "" && !selectedFriend) {
-      // Show all friends when input is empty and no friend selected
-      setFilteredFriends(friends)
-      setShowDropdown(friends.length > 0)
-    } else if (!selectedFriend) {
-      // Filter friends based on input only if no friend is selected
-      const query = inputValue.replace(/^@/, "").toLowerCase()
+    const cursorPos = inputRef.current?.selectionStart || inputValue.length
+    const tag = findCurrentTag(inputValue, cursorPos)
+    setCurrentTag(tag)
+
+    if (tag && tag.query.length > 0 && !selectedFriend) {
+      // Filter friends based on the tag query
+      const query = tag.query.toLowerCase()
       const filtered = friends.filter(friend => 
         friend.username.toLowerCase().includes(query) ||
         (friend.name && friend.name.toLowerCase().includes(query))
@@ -48,8 +84,9 @@ const TagInput: React.FC<TagInputProps> = ({
       setFilteredFriends(filtered)
       setShowDropdown(filtered.length > 0)
     } else {
-      // Hide dropdown when friend is selected
+      // Hide dropdown when not in a tag or friend is selected
       setShowDropdown(false)
+      setFilteredFriends([])
     }
     setSelectedIndex(-1)
   }, [inputValue, friends, disabled, selectedFriend])
@@ -58,8 +95,8 @@ const TagInput: React.FC<TagInputProps> = ({
     const value = e.target.value
     setInputValue(value)
     
-    // Clear selected friend if user starts typing again
-    if (selectedFriend && value !== selectedFriend.username) {
+    // Clear selected friend when user types
+    if (selectedFriend) {
       setSelectedFriend(null)
     }
   }
@@ -100,32 +137,36 @@ const TagInput: React.FC<TagInputProps> = ({
   }
 
   const selectFriend = (friend: Friend) => {
+    if (!currentTag) return
+
     // Set flag to prevent blur from closing dropdown
     isSelectingRef.current = true
     
+    // Replace the current tag with the selected friend's username
+    const newValue = 
+      inputValue.slice(0, currentTag.start + 1) + // Keep text before @ and the @
+      friend.username + // Insert friend's username
+      inputValue.slice(currentTag.end) // Keep text after the tag
+
     setSelectedFriend(friend)
-    setInputValue(friend.username) // Show username without @
+    setInputValue(newValue)
     setShowDropdown(false)
     setSelectedIndex(-1)
     
-    // Focus back to input
-    inputRef.current?.focus()
-    
-    // Reset the selecting flag after a short delay
+    // Set cursor position after the inserted username
     setTimeout(() => {
+      if (inputRef.current) {
+        const newCursorPos = currentTag.start + 1 + friend.username.length
+        inputRef.current.setSelectionRange(newCursorPos, newCursorPos)
+        inputRef.current.focus()
+      }
       isSelectingRef.current = false
-    }, 100)
+    }, 10)
   }
 
   const handleSendTag = () => {
-    if (selectedFriend || inputValue.trim()) {
-      // Create a synthetic Enter key event to trigger tagging
-      const username = selectedFriend ? selectedFriend.username : inputValue.trim()
-      
-      // Update input value to ensure it has the correct username
-      setInputValue(username)
-      
-      // Create synthetic event
+    if (inputValue.trim()) {
+      // Create synthetic event to send the current message
       setTimeout(() => {
         if (inputRef.current) {
           const event = new KeyboardEvent('keydown', {
@@ -151,7 +192,10 @@ const TagInput: React.FC<TagInputProps> = ({
   }
 
   const handleInputFocus = () => {
-    if (!selectedFriend && (friends.length > 0 || inputValue.trim())) {
+    // Check if we're currently in a tag when focusing
+    const cursorPos = inputRef.current?.selectionStart || inputValue.length
+    const tag = findCurrentTag(inputValue, cursorPos)
+    if (tag && tag.query.length > 0) {
       setShowDropdown(true)
     }
   }
@@ -179,6 +223,28 @@ const TagInput: React.FC<TagInputProps> = ({
     e.preventDefault()
   }
 
+  // Handle cursor movement to detect if we're in a tag
+  const handleInputClick = () => {
+    setTimeout(() => {
+      const cursorPos = inputRef.current?.selectionStart || inputValue.length
+      const tag = findCurrentTag(inputValue, cursorPos)
+      setCurrentTag(tag)
+      
+      if (tag && tag.query.length > 0) {
+        // Filter friends for this tag
+        const query = tag.query.toLowerCase()
+        const filtered = friends.filter(friend => 
+          friend.username.toLowerCase().includes(query) ||
+          (friend.name && friend.name.toLowerCase().includes(query))
+        )
+        setFilteredFriends(filtered)
+        setShowDropdown(filtered.length > 0)
+      } else {
+        setShowDropdown(false)
+      }
+    }, 10)
+  }
+
   // Scroll selected item into view
   useEffect(() => {
     if (selectedIndex >= 0 && dropdownRef.current) {
@@ -203,7 +269,7 @@ const TagInput: React.FC<TagInputProps> = ({
         }}
         className="flex items-center bg-white border border-gray-300 rounded px-1 shadow-lg">
         <div className="text-xl text-gray-600 mr-1">
-          {disabled ? "⏳" : "🔖"}
+          {disabled ? "⏳" : "💬"}
         </div>
         <input
           ref={inputRef}
@@ -212,23 +278,25 @@ const TagInput: React.FC<TagInputProps> = ({
           onKeyDown={handleKeyDown}
           onFocus={handleInputFocus}
           onBlur={handleInputBlur}
-          placeholder={disabled ? "Saving..." : selectedFriend ? selectedFriend.username : "username"}
+          onClick={handleInputClick}
+          onKeyUp={handleInputClick} // Also handle key movements
+          placeholder={disabled ? "Saving..." : "Type your message... use @username to tag"}
           disabled={disabled}
-          className="text-sm text-black bg-white py-1 px-2 focus:outline-none w-40 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="text-sm text-black bg-white py-1 px-2 focus:outline-none w-64 disabled:opacity-50 disabled:cursor-not-allowed"
         />
         
         {/* Send Button */}
         <button
           onClick={handleSendTag}
-          disabled={disabled || (!selectedFriend && !inputValue.trim())}
+          disabled={disabled || !inputValue.trim()}
           className="ml-1 px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors cursor-pointer"
-          title="Send tag"
+          title="Send message"
         >
           ➤
         </button>
         
-        {/* Friends count indicator */}
-        {friends.length > 0 && !disabled && !selectedFriend && (
+        {/* Friends count indicator - only show when in a tag */}
+        {friends.length > 0 && !disabled && currentTag && (
           <div className="text-xs text-gray-400 ml-1 px-1">
             {friends.length}👥
           </div>
@@ -236,7 +304,7 @@ const TagInput: React.FC<TagInputProps> = ({
       </div>
 
       {/* Friends Dropdown */}
-      {showDropdown && !disabled && !selectedFriend && (
+      {showDropdown && !disabled && currentTag && (
         <div
           ref={dropdownRef}
           onMouseDown={handleDropdownMouseDown} // Prevent blur when clicking dropdown
@@ -252,7 +320,7 @@ const TagInput: React.FC<TagInputProps> = ({
           <div className="px-3 py-2 border-b border-gray-200 bg-gray-50 sticky top-0">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
-                👥 {inputValue.trim() ? `Search: "${inputValue.replace(/^@/, "")}"` : "Your Friends"}
+                👥 Tag: "{currentTag.query}"
               </span>
               <span className="text-xs text-gray-500">
                 Click to select
@@ -266,7 +334,7 @@ const TagInput: React.FC<TagInputProps> = ({
               {filteredFriends.map((friend, index) => (
                 <div
                   key={friend.username}
-                  onMouseDown={(e) => {
+                  onClick={(e) => {
                     // Prevent blur and handle selection
                     e.preventDefault()
                     selectFriend(friend)
@@ -296,7 +364,7 @@ const TagInput: React.FC<TagInputProps> = ({
                   {/* User Info */}
                   <div className="flex-1 min-w-0">
                     <div className="font-medium text-gray-900 text-sm truncate">
-                      {friend.username}
+                      @{friend.username}
                     </div>
                     {friend.name && (
                       <div className="text-xs text-gray-500 truncate">
@@ -318,18 +386,6 @@ const TagInput: React.FC<TagInputProps> = ({
                 </div>
               ))}
             </div>
-          ) : friends.length === 0 ? (
-            <div className="px-3 py-6 text-center text-gray-500 text-sm">
-              <div className="mb-3">
-                <svg className="w-12 h-12 mx-auto text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-              </div>
-              <div className="font-medium">No friends found</div>
-              <div className="text-xs text-gray-400 mt-1">
-                Add friends to see them here
-              </div>
-            </div>
           ) : (
             <div className="px-3 py-6 text-center text-gray-500 text-sm">
               <div className="mb-3">
@@ -337,7 +393,7 @@ const TagInput: React.FC<TagInputProps> = ({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
               </div>
-              <div className="font-medium">No friends match "{inputValue.replace(/^@/, "")}"</div>
+              <div className="font-medium">No friends match "{currentTag.query}"</div>
               <div className="text-xs text-gray-400 mt-1">
                 Try a different search term
               </div>
@@ -361,62 +417,6 @@ const TagInput: React.FC<TagInputProps> = ({
               </div>
             </div>
           )}
-        </div>
-      )}
-
-      {/* Selected Friend Indicator */}
-      {selectedFriend && (
-        <div
-          style={{
-            position: "fixed",
-            top: `${position.top + 35}px`,
-            left: `${position.left}px`,
-            zIndex: 999998
-          }}
-          className="bg-green-50 border border-green-200 rounded-lg shadow-lg p-3 w-64">
-          <div className="flex items-center gap-3">
-            {/* Avatar */}
-            <div className="flex-shrink-0">
-              {selectedFriend.image ? (
-                <img
-                  src={selectedFriend.image}
-                  alt={selectedFriend.username}
-                  className="w-8 h-8 rounded-full object-cover border border-green-300"
-                />
-              ) : (
-                <div className="w-8 h-8 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center text-white text-xs font-semibold">
-                  {selectedFriend.username.charAt(0).toUpperCase()}
-                </div>
-              )}
-            </div>
-            
-            {/* User Info */}
-            <div className="flex-1 min-w-0">
-              <div className="font-medium text-green-900 text-sm">
-                Selected: {selectedFriend.username}
-              </div>
-              {selectedFriend.name && (
-                <div className="text-xs text-green-700">
-                  {selectedFriend.name}
-                </div>
-              )}
-            </div>
-            
-            {/* Clear Selection */}
-            <button
-              onClick={() => {
-                setSelectedFriend(null)
-                setInputValue("")
-                inputRef.current?.focus()
-              }}
-              className="flex-shrink-0 text-green-600 hover:text-green-800 transition-colors"
-              title="Clear selection"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
         </div>
       )}
     </div>
