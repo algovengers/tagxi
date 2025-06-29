@@ -63,17 +63,19 @@ const Popup = () => {
         name: "get-auth"
       })
 
-      console.log("are where here?")
-      console.log(response.redirect.data.user)
-
-      setUserData((prev) => ({ ...prev }))
+      console.log("Authentication response:", response)
 
       if (response?.redirect?.data) {
         setIsAuthenticated(true)
         setUserData((prev) => ({
           ...prev,
-          username: response.redirect.data?.user?.username
+          username: response.redirect.data?.user?.username || prev.username
         }))
+        
+        // Settings are now included in the auth response and cached
+        if (response.settings) {
+          console.log("Settings received in popup:", response.settings)
+        }
       } else {
         setIsAuthenticated(false)
       }

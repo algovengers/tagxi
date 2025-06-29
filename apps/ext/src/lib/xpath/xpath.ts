@@ -10,57 +10,64 @@ const getElementFromXpath = (xpath: string): Node | null => {
   const node = result.singleNodeValue // Use singleNodeValue for FIRST_ORDERED_NODE_TYPE
   return node
 }
+
 const selectAndHighlightText = (
   element: Node,
   start: number,
   end: number,
-  color = "yellow"
+  color = "#ffb988" // Default color, will be overridden by user settings
 ) => {
   const textNode = element as Text
   const before = textNode.splitText(start)
   before.splitText(end - start)
   const wrapper = document.createElement("mark")
   wrapper.style.backgroundColor = color
+  wrapper.style.color = "#000" // Ensure text is readable
+  wrapper.style.padding = "1px 2px"
+  wrapper.style.borderRadius = "2px"
   wrapper.textContent = before.textContent
   before.replaceWith(wrapper)
 }
 
-const selectAndHighlightImage = (element: Node) => {
+const selectAndHighlightImage = (element: Node, color = "#ffb988") => {
   if (
     element &&
     element.nodeType === Node.ELEMENT_NODE &&
     (element as HTMLElement).tagName === "IMG"
   ) {
     const img = element as HTMLImageElement
-    img.style.border = "3px solid red"
+    img.style.border = `3px solid ${color}`
     img.style.borderRadius = "4px"
+    img.style.boxShadow = `0 0 0 2px ${color}40` // Add subtle glow
   }
 }
 
 export const selectAndHighlightElement = (
   xpath: string,
   startOffset: number,
-  endOffset?: number
+  endOffset?: number,
+  color = "#ffb988" // Accept color parameter
 ) => {
   const element = getElementFromXpath(xpath)
 
   if (!element) return
   if (element.nodeType === Node.TEXT_NODE) {
     if (typeof startOffset === "number" && typeof endOffset === "number") {
-      selectAndHighlightText(element, startOffset, endOffset)
+      selectAndHighlightText(element, startOffset, endOffset, color)
     } else {
       const textContentLength = element.textContent?.length
         ? element.textContent.length
         : 0
-      selectAndHighlightText(element, startOffset, textContentLength)
+      selectAndHighlightText(element, startOffset, textContentLength, color)
     }
   } else if (
     element.nodeType === Node.ELEMENT_NODE &&
     (element as HTMLElement).tagName === "IMG"
   ) {
-    selectAndHighlightImage(element)
+    selectAndHighlightImage(element, color)
   } else if (element.nodeType === Node.ELEMENT_NODE) {
-    ;(element as HTMLElement).style.outline = "2px dashed blue"
+    ;(element as HTMLElement).style.outline = `2px dashed ${color}`
+    ;(element as HTMLElement).style.outlineOffset = "2px"
   }
 }
 

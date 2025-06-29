@@ -32,8 +32,28 @@ const AIScannerContentScript = () => {
   const [isScanning, setIsScanning] = useState(false)
   const [isHighlighted, setIsHighlighted] = useState(false)
   const [tagColor, setTagColor] = useState("#ffb988")
+  const [blockedWebsites, setBlockedWebsites] = useState<string[]>([])
 
-  // Load user settings for tag color
+  // Check if current site is blocked
+  const isCurrentSiteBlocked = () => {
+    const currentUrl = window.location.href
+    return blockedWebsites.some(blockedSite => {
+      try {
+        // Handle both full URLs and domain patterns
+        if (blockedSite.startsWith('http')) {
+          return currentUrl.startsWith(blockedSite)
+        } else {
+          // Treat as domain pattern
+          return currentUrl.includes(blockedSite)
+        }
+      } catch (error) {
+        console.warn("Error checking blocked site:", error)
+        return false
+      }
+    })
+  }
+
+  // Load user settings for tag color and blocked sites
   useEffect(() => {
     const loadSettings = async () => {
       try {
@@ -41,8 +61,16 @@ const AIScannerContentScript = () => {
           name: "get-settings"
         })
         
-        if (response.success && response.data?.extensionSettings?.tag_color) {
-          setTagColor(response.data.extensionSettings.tag_color)
+        if (response.success && response.data) {
+          const settings = response.data
+          
+          if (settings.extensionSettings?.tag_color) {
+            setTagColor(settings.extensionSettings.tag_color)
+          }
+          
+          if (settings.blockedWebsites) {
+            setBlockedWebsites(settings.blockedWebsites)
+          }
         }
       } catch (error) {
         console.warn("Failed to load settings, using default color:", error)
@@ -55,8 +83,9 @@ const AIScannerContentScript = () => {
   // Handle Ctrl+K keyboard shortcut
   useEffect(() => {
     const handleKeyDown = async (event: KeyboardEvent) => {
-      // Check if we're on an ignored site
-      if (IGNORE_LIST.some(ignore => window.location.href.startsWith(ignore))) {
+      // Check if we're on an ignored site or blocked site
+      if (IGNORE_LIST.some(ignore => window.location.href.startsWith(ignore)) || 
+          isCurrentSiteBlocked()) {
         return
       }
 
@@ -85,7 +114,7 @@ const AIScannerContentScript = () => {
 
     document.addEventListener("keydown", handleKeyDown)
     return () => document.removeEventListener("keydown", handleKeyDown)
-  }, [isHighlighted, tagColor])
+  }, [isHighlighted, tagColor, blockedWebsites])
 
   const performAIScan = async () => {
     if (isScanning) return
@@ -102,7 +131,7 @@ const AIScannerContentScript = () => {
         return
       }
       
-      // Highlight the found elements
+      // Highlight the found elements with user's preferred color
       highlightTaggableElements(taggableElements, tagColor)
       setIsHighlighted(true)
       
@@ -117,6 +146,11 @@ const AIScannerContentScript = () => {
     } finally {
       setIsScanning(false)
     }
+  }
+
+  // Don't render anything if site is blocked
+  if (isCurrentSiteBlocked()) {
+    return null
   }
 
   // Show loading indicator when scanning

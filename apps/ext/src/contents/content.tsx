@@ -46,11 +46,63 @@ const TagxiContentScript = () => {
   const [iconPosition, setIconPosition] = useState({ top: 0, left: 0 })
   const [showInput, setShowInput] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [tagColor, setTagColor] = useState("#ffb988") // Default color
+  const [blockedWebsites, setBlockedWebsites] = useState<string[]>([])
   const [lastScroll, setLastScroll] = useState({
     y: window.scrollY,
     x: window.scrollX
   })
   const selectionRef = useRef<Record<string, string | number> | null>(null)
+
+  // Check if current site is blocked
+  const isCurrentSiteBlocked = () => {
+    const currentUrl = window.location.href
+    return blockedWebsites.some(blockedSite => {
+      try {
+        // Handle both full URLs and domain patterns
+        if (blockedSite.startsWith('http')) {
+          return currentUrl.startsWith(blockedSite)
+        } else {
+          // Treat as domain pattern
+          return currentUrl.includes(blockedSite)
+        }
+      } catch (error) {
+        console.warn("Error checking blocked site:", error)
+        return false
+      }
+    })
+  }
+
+  // Load user settings
+  const loadSettings = async () => {
+    try {
+      const response = await sendToBackground({
+        name: "get-settings"
+      })
+      
+      if (response.success && response.data) {
+        const settings = response.data
+        
+        // Update tag color
+        if (settings.extensionSettings?.tag_color) {
+          setTagColor(settings.extensionSettings.tag_color)
+        }
+        
+        // Update blocked websites
+        if (settings.blockedWebsites) {
+          setBlockedWebsites(settings.blockedWebsites)
+        }
+        
+        console.log("Settings loaded:", {
+          tagColor: settings.extensionSettings?.tag_color,
+          blockedWebsites: settings.blockedWebsites,
+          source: response.source
+        })
+      }
+    } catch (error) {
+      console.warn("Failed to load settings:", error)
+    }
+  }
 
   const resetSelection = () => {
     setShowIcon(false)
@@ -59,6 +111,11 @@ const TagxiContentScript = () => {
   }
 
   const handleMouseUp = useCallback((e: MouseEvent) => {
+    // Check if site is blocked
+    if (isCurrentSiteBlocked()) {
+      return
+    }
+    
     if ((e.target as HTMLElement).id === "tagxi-icon") {
       return
     }
@@ -95,7 +152,7 @@ const TagxiContentScript = () => {
     setLastScroll({ y: window.scrollY, x: window.scrollX })
     setShowIcon(true)
     setShowInput(false)
-  }, [])
+  }, [blockedWebsites])
 
   const handleIconClick = useCallback(() => {
     setShowInput(true)
@@ -104,6 +161,12 @@ const TagxiContentScript = () => {
 
   const handleInputKeyDown = useCallback(
     async (e: React.KeyboardEvent<HTMLInputElement>) => {
+      // Check if site is blocked
+      if (isCurrentSiteBlocked()) {
+        showToast("warning", "TagXi is disabled on this website")
+        return
+      }
+      
       if (
         IGNORE_LIST.filter((IGNORE) => window.location.href.startsWith(IGNORE))
           .length
@@ -141,17 +204,21 @@ const TagxiContentScript = () => {
               selectAndHighlightElement(
                 startContainerXPath as string,
                 startOffset as number,
-                endOffset as number
+                endOffset as number,
+                tagColor // Use user's preferred color
               )
             } else {
               selectAndHighlightElement(
                 startContainerXPath as string,
-                startOffset as number
+                startOffset as number,
+                undefined,
+                tagColor
               )
               selectAndHighlightElement(
                 endContainerXPath as string,
                 0,
-                endOffset as number
+                endOffset as number,
+                tagColor
               )
             }
             showToast("success", "Tag saved")
@@ -166,7 +233,7 @@ const TagxiContentScript = () => {
         }
       }
     },
-    []
+    [tagColor, blockedWebsites]
   )
 
   const handleKeyboardInputs = (e: KeyboardEvent) => {
@@ -182,6 +249,12 @@ const TagxiContentScript = () => {
   }
 
   const loadExistingTags = async () => {
+    // Check if site is blocked
+    if (isCurrentSiteBlocked()) {
+      console.log("TagXi is disabled on this website")
+      return
+    }
+    
     if (
       IGNORE_LIST.filter((IGNORE) => window.location.href.startsWith(IGNORE))
         .length
@@ -205,11 +278,12 @@ const TagxiContentScript = () => {
               selectAndHighlightElement(
                 start_tag_xpath,
                 start_tag_offset,
-                end_tag_offset
+                end_tag_offset,
+                tagColor // Use user's preferred color
               )
             } else {
-              selectAndHighlightElement(start_tag_xpath, start_tag_offset)
-              selectAndHighlightElement(end_tag_xpath, 0, end_tag_offset)
+              selectAndHighlightElement(start_tag_xpath, start_tag_offset, undefined, tagColor)
+              selectAndHighlightElement(end_tag_xpath, 0, end_tag_offset, tagColor)
             }
           } catch (error) {
             console.log("not aload")
@@ -247,7 +321,12 @@ const TagxiContentScript = () => {
   }, [])
 
   useEffect(() => {
-    loadExistingTags()
+    // Load settings first
+    loadSettings().then(() => {
+      // Only load existing tags after settings are loaded
+      loadExistingTags()
+    })
+    
     document.addEventListener("mouseup", handleMouseUp)
     document.addEventListener("scroll", removeTagAndInputOnScroll)
     document.addEventListener("keydown", handleKeyboardInputs)
@@ -257,6 +336,18 @@ const TagxiContentScript = () => {
       document.addEventListener("keydown", handleKeyboardInputs)
     }
   }, [])
+
+  // Re-run when settings change
+  useEffect(() => {
+    if (tagColor !== "#ffb988") { // Only reload if color has changed from default
+      loadExistingTags()
+    }
+  }, [tagColor])
+
+  // Don't render anything if site is blocked
+  if (isCurrentSiteBlocked()) {
+    return null
+  }
 
   return (
     <>
