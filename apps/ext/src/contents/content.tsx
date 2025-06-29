@@ -74,10 +74,10 @@ const TagxiContentScript = () => {
     })
   }
 
-  // Load user settings
+  // Load user settings directly from API every time
   const loadSettings = async () => {
     try {
-      console.log("🔧 Loading user settings...")
+      console.log("🔧 Content Script: Loading user settings from API...")
       const response = await sendToBackground({
         name: "get-settings"
       })
@@ -88,23 +88,23 @@ const TagxiContentScript = () => {
         // Update tag color
         if (settings.extensionSettings?.tag_color) {
           setTagColor(settings.extensionSettings.tag_color)
-          console.log("✅ Tag color loaded:", settings.extensionSettings.tag_color)
+          console.log("✅ Content Script: Tag color loaded:", settings.extensionSettings.tag_color)
         }
         
         // Update blocked websites
         if (settings.blockedWebsites) {
           setBlockedWebsites(settings.blockedWebsites)
-          console.log("✅ Blocked websites loaded:", settings.blockedWebsites)
+          console.log("✅ Content Script: Blocked websites loaded:", settings.blockedWebsites)
         }
         
         setSettingsLoaded(true)
-        console.log("✅ Settings loaded successfully from:", response.source)
+        console.log("✅ Content Script: Settings loaded successfully from API")
       } else {
-        console.warn("⚠️ Failed to load settings, using defaults")
+        console.warn("⚠️ Content Script: Failed to load settings, using defaults")
         setSettingsLoaded(true) // Still mark as loaded to proceed
       }
     } catch (error) {
-      console.error("❌ Error loading settings:", error)
+      console.error("❌ Content Script: Error loading settings:", error)
       setSettingsLoaded(true) // Mark as loaded to prevent blocking
     }
   }
@@ -256,7 +256,7 @@ const TagxiContentScript = () => {
   const loadExistingTags = async () => {
     // Don't load tags if settings not loaded or site is blocked
     if (!settingsLoaded || isCurrentSiteBlocked()) {
-      console.log("🚫 Skipping tag loading - settings not loaded or site blocked")
+      console.log("🚫 Content Script: Skipping tag loading - settings not loaded or site blocked")
       return
     }
     
@@ -266,7 +266,7 @@ const TagxiContentScript = () => {
     )
       return
     
-    console.log("🏷️ Loading existing tags with color:", tagColor)
+    console.log("🏷️ Content Script: Loading existing tags with color:", tagColor)
     
     try {
       const response = await sendToBackground({
@@ -302,7 +302,7 @@ const TagxiContentScript = () => {
         })
         
         if (successCount > 0) {
-          console.log(`✅ Successfully loaded ${successCount} tags with color ${tagColor}`)
+          console.log(`✅ Content Script: Successfully loaded ${successCount} tags with color ${tagColor}`)
         }
       } else if (!response.success && response.authenticationRequired) {
         showToast("warning", "Please sign in to load and save tags")
@@ -337,9 +337,9 @@ const TagxiContentScript = () => {
   // Initial setup - load settings first, then tags
   useEffect(() => {
     const initializeExtension = async () => {
-      console.log("🚀 Initializing TagXi extension...")
+      console.log("🚀 Content Script: Initializing TagXi extension...")
       
-      // Step 1: Load settings
+      // Step 1: Load settings directly from API
       await loadSettings()
       
       // Step 2: Load existing tags (only after settings are loaded)
@@ -361,14 +361,14 @@ const TagxiContentScript = () => {
   // Load existing tags when settings are loaded
   useEffect(() => {
     if (settingsLoaded) {
-      console.log("⚙️ Settings loaded, now loading existing tags...")
+      console.log("⚙️ Content Script: Settings loaded, now loading existing tags...")
       loadExistingTags()
     }
   }, [settingsLoaded, tagColor])
 
   // Don't render anything if site is blocked
   if (isCurrentSiteBlocked()) {
-    console.log("🚫 TagXi disabled on this website")
+    console.log("🚫 Content Script: TagXi disabled on this website")
     return null
   }
 

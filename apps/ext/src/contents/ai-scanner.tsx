@@ -55,11 +55,11 @@ const AIScannerContentScript = () => {
     })
   }
 
-  // Load user settings for tag color and blocked sites
+  // Load user settings directly from API every time
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        console.log("🔧 AI Scanner: Loading user settings...")
+        console.log("🔧 AI Scanner: Loading user settings from API...")
         const response = await sendToBackground({
           name: "get-settings"
         })
@@ -78,7 +78,7 @@ const AIScannerContentScript = () => {
           }
           
           setSettingsLoaded(true)
-          console.log("✅ AI Scanner: Settings loaded successfully")
+          console.log("✅ AI Scanner: Settings loaded successfully from API")
         } else {
           console.warn("⚠️ AI Scanner: Failed to load settings, using defaults")
           setSettingsLoaded(true)
