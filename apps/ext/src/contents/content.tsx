@@ -41,16 +41,97 @@ export const getStyle = () => {
 
 const MAX_SCROLL_DELTA = 150
 
+type Friend = {
+  username: string
+  name: string | null
+  image: string | null
+}
+
 const TagxiContentScript = () => {
   const [showIcon, setShowIcon] = useState(false)
   const [iconPosition, setIconPosition] = useState({ top: 0, left: 0 })
   const [showInput, setShowInput] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [settingsLoaded, setSettingsLoaded] = useState(false)
+  const [tagColor, setTagColor] = useState("#ffb988") // Default color
+  const [blockedWebsites, setBlockedWebsites] = useState<string[]>([])
+  const [currentUsername, setCurrentUsername] = useState<string>("")
+  const [friends, setFriends] = useState<Friend[]>([])
   const [lastScroll, setLastScroll] = useState({
     y: window.scrollY,
     x: window.scrollX
   })
   const selectionRef = useRef<Record<string, string | number> | null>(null)
+  const settingsLoadedRef = useRef(false) // Prevent multiple loads
+
+  // Check if current site is blocked
+  const isCurrentSiteBlocked = () => {
+    const currentUrl = window.location.href
+    return blockedWebsites.some(blockedSite => {
+      try {
+        // Handle both full URLs and domain patterns
+        if (blockedSite.startsWith('http')) {
+          return currentUrl.startsWith(blockedSite)
+        } else {
+          // Treat as domain pattern
+          return currentUrl.includes(blockedSite)
+        }
+      } catch (error) {
+        console.warn("Error checking blocked site:", error)
+        return false
+      }
+    })
+  }
+
+  // Load user settings and friends - ONLY ONCE
+  const loadSettings = async () => {
+    // Prevent multiple simultaneous loads
+    if (settingsLoadedRef.current) {
+      console.log("⚠️ Content Script: Settings already loaded, skipping...")
+      return
+    }
+    
+    settingsLoadedRef.current = true
+    
+    try {
+      console.log("🔧 Content Script: Loading user settings and friends (one-time)...")
+      
+      // Get settings, auth info, and friends
+      const [settingsResponse, authResponse] = await Promise.all([
+        sendToBackground({ name: "get-settings" }),
+        sendToBackground({ name: "get-auth" })
+      ])
+      
+      // Handle settings
+      if (settingsResponse.success && settingsResponse.data) {
+        const settings = settingsResponse.data
+        
+        if (settings.extensionSettings?.tag_color) {
+          setTagColor(settings.extensionSettings.tag_color)
+          console.log("✅ Content Script: Tag color loaded:", settings.extensionSettings.tag_color)
+        }
+        
+        if (settings.blockedWebsites) {
+          setBlockedWebsites(settings.blockedWebsites)
+          console.log("✅ Content Script: Blocked websites loaded:", settings.blockedWebsites)
+        }
+        
+        console.log(`📦 Content Script: Settings source: ${settingsResponse.source || 'unknown'}`)
+      }
+      
+      // Handle authentication
+      if (authResponse?.redirect?.data?.user?.username) {
+        setCurrentUsername(authResponse.redirect.data.user.username)
+        console.log("✅ Content Script: Current user loaded:", authResponse.redirect.data.user.username)
+      }
+      
+      setSettingsLoaded(true)
+      console.log("✅ Content Script: Settings and auth loaded successfully")
+    } catch (error) {
+      console.error("❌ Content Script: Error loading settings:", error)
+      setSettingsLoaded(true) // Still mark as loaded to prevent blocking
+    }
+  }
 
   const resetSelection = () => {
     setShowIcon(false)
@@ -59,6 +140,11 @@ const TagxiContentScript = () => {
   }
 
   const handleMouseUp = useCallback((e: MouseEvent) => {
+    // Don't proceed if settings not loaded or site is blocked
+    if (!settingsLoaded || isCurrentSiteBlocked()) {
+      return
+    }
+    
     if ((e.target as HTMLElement).id === "tagxi-icon") {
       return
     }
@@ -95,7 +181,7 @@ const TagxiContentScript = () => {
     setLastScroll({ y: window.scrollY, x: window.scrollX })
     setShowIcon(true)
     setShowInput(false)
-  }, [])
+  }, [settingsLoaded, blockedWebsites])
 
   const handleIconClick = useCallback(() => {
     setShowInput(true)
@@ -104,6 +190,12 @@ const TagxiContentScript = () => {
 
   const handleInputKeyDown = useCallback(
     async (e: React.KeyboardEvent<HTMLInputElement>) => {
+      // Check if site is blocked
+      if (isCurrentSiteBlocked()) {
+        showToast("warning", "TagXi is disabled on this website")
+        return
+      }
+      
       if (
         IGNORE_LIST.filter((IGNORE) => window.location.href.startsWith(IGNORE))
           .length
@@ -137,21 +229,30 @@ const TagxiContentScript = () => {
               startOffset,
               endOffset
             } = selectionRef.current
+            
+            // FIXED: Use the correct function calls with proper parameters
             if (startContainerXPath === endContainerXPath) {
               selectAndHighlightElement(
                 startContainerXPath as string,
                 startOffset as number,
-                endOffset as number
+                endOffset as number,
+                tagColor,
+                currentUsername // Pass current user as tagger for hover tooltip
               )
             } else {
               selectAndHighlightElement(
                 startContainerXPath as string,
-                startOffset as number
+                startOffset as number,
+                undefined, // endOffset not needed for single container
+                tagColor,
+                currentUsername
               )
               selectAndHighlightElement(
                 endContainerXPath as string,
                 0,
-                endOffset as number
+                endOffset as number,
+                tagColor,
+                currentUsername
               )
             }
             showToast("success", "Tag saved")
@@ -166,7 +267,7 @@ const TagxiContentScript = () => {
         }
       }
     },
-    []
+    [tagColor, blockedWebsites, currentUsername, isLoading]
   )
 
   const handleKeyboardInputs = (e: KeyboardEvent) => {
@@ -182,18 +283,29 @@ const TagxiContentScript = () => {
   }
 
   const loadExistingTags = async () => {
+    // Don't load tags if settings not loaded or site is blocked
+    if (!settingsLoaded || isCurrentSiteBlocked()) {
+      console.log("🚫 Content Script: Skipping tag loading - settings not loaded or site blocked")
+      return
+    }
+    
     if (
       IGNORE_LIST.filter((IGNORE) => window.location.href.startsWith(IGNORE))
         .length
     )
       return
+    
+    console.log("🏷️ Content Script: Loading existing tags with color:", tagColor)
+    
     try {
       const response = await sendToBackground({
         name: "get-tag",
         body: { url: window.location.href }
       })
       if (response.success && response.data) {
-        response.data.forEach(({ metadata }) => {
+        let successCount = 0
+        
+        response.data.forEach(({ metadata, owner }) => {
           const {
             start_tag_offset,
             end_tag_xpath,
@@ -201,28 +313,47 @@ const TagxiContentScript = () => {
             end_tag_offset
           } = metadata
           try {
+            // FIXED: Use correct function calls for loading existing tags
             if (start_tag_xpath === end_tag_xpath) {
               selectAndHighlightElement(
                 start_tag_xpath,
                 start_tag_offset,
-                end_tag_offset
+                end_tag_offset,
+                tagColor,
+                owner // Pass the owner as the tagger for hover tooltip
               )
             } else {
-              selectAndHighlightElement(start_tag_xpath, start_tag_offset)
-              selectAndHighlightElement(end_tag_xpath, 0, end_tag_offset)
+              selectAndHighlightElement(
+                start_tag_xpath, 
+                start_tag_offset, 
+                undefined, 
+                tagColor, 
+                owner
+              )
+              selectAndHighlightElement(
+                end_tag_xpath, 
+                0, 
+                end_tag_offset, 
+                tagColor, 
+                owner
+              )
             }
+            successCount++
           } catch (error) {
-            console.log("not aload")
-            showToast("danger", "Error loading existing tags")
-            // TODO: maybe showing our saved page kind of internet archive with a toast
+            console.warn("Failed to highlight tag:", error)
           }
         })
+        
+        if (successCount > 0) {
+          console.log(`✅ Content Script: Successfully loaded ${successCount} tags with color ${tagColor}`)
+        }
       } else if (!response.success && response.authenticationRequired) {
         showToast("warning", "Please sign in to load and save tags")
       } else {
-        showToast("danger", "Error loading existing tags")
+        console.log("No existing tags found")
       }
     } catch (error) {
+      console.error("Error loading existing tags:", error)
       showToast("danger", "Error loading existing tags")
     }
   }
@@ -246,17 +377,42 @@ const TagxiContentScript = () => {
     }
   }, [])
 
+  // Initial setup - load settings ONLY ONCE
   useEffect(() => {
-    loadExistingTags()
+    const initializeExtension = async () => {
+      console.log("🚀 Content Script: Initializing TagXi extension...")
+      
+      // Step 1: Load settings ONLY if not already loaded
+      if (!settingsLoadedRef.current) {
+        await loadSettings()
+      }
+    }
+    
+    initializeExtension()
+    
     document.addEventListener("mouseup", handleMouseUp)
     document.addEventListener("scroll", removeTagAndInputOnScroll)
     document.addEventListener("keydown", handleKeyboardInputs)
     return () => {
       document.removeEventListener("mouseup", handleMouseUp)
-      document.addEventListener("scroll", removeTagAndInputOnScroll)
-      document.addEventListener("keydown", handleKeyboardInputs)
+      document.removeEventListener("scroll", removeTagAndInputOnScroll)
+      document.removeEventListener("keydown", handleKeyboardInputs)
     }
-  }, [])
+  }, [handleMouseUp])
+
+  // Load existing tags when settings are loaded - ONLY ONCE
+  useEffect(() => {
+    if (settingsLoaded && !isCurrentSiteBlocked()) {
+      console.log("⚙️ Content Script: Settings loaded, now loading existing tags...")
+      loadExistingTags()
+    }
+  }, [settingsLoaded]) // Removed tagColor dependency to prevent reloading
+
+  // Don't render anything if site is blocked
+  if (isCurrentSiteBlocked()) {
+    console.log("🚫 Content Script: TagXi disabled on this website")
+    return null
+  }
 
   return (
     <>
@@ -268,6 +424,7 @@ const TagxiContentScript = () => {
           position={iconPosition}
           onKeyDown={handleInputKeyDown}
           disabled={isLoading}
+          friends={friends} // Pass pre-loaded friends (empty for now)
         />
       )}
     </>

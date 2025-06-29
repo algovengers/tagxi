@@ -1,6 +1,6 @@
 import { eq, and, or } from "drizzle-orm";
 import { db } from "../index";
-import { settings } from "@/schema";
+import { settings } from "../schema";
 
 export const areFriends = async (userId1: string, userId2: string) => {
   const arr = [userId1, userId2];

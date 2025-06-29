@@ -2,13 +2,13 @@ import type { PlasmoMessaging } from "@plasmohq/messaging"
 
 // Session-based cache - cleared when page reloads
 let sessionCache: {
-  settings?: {
-    data: any
+  friends?: {
+    data: any[]
     timestamp: number
   }
 } = {}
 
-const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
+const CACHE_DURATION = 10 * 60 * 1000 // 10 minutes
 
 // Track ongoing requests to prevent duplicate calls
 let ongoingRequest: Promise<any> | null = null
@@ -16,12 +16,12 @@ let ongoingRequest: Promise<any> | null = null
 const handler: PlasmoMessaging.MessageHandler = async (req, res) => {
   try {
     // Check if we have valid session cached data
-    if (sessionCache.settings && (Date.now() - sessionCache.settings.timestamp) < CACHE_DURATION) {
-      console.log("📦 get-settings: Returning session cached settings")
+    if (sessionCache.friends && (Date.now() - sessionCache.friends.timestamp) < CACHE_DURATION) {
+      console.log("📦 get-friends: Returning session cached friends")
       res.send({
         success: true,
-        data: sessionCache.settings.data,
-        message: "Settings retrieved from session cache",
+        data: sessionCache.friends.data,
+        message: "Friends retrieved from session cache",
         source: "session-cache"
       });
       return
@@ -29,7 +29,7 @@ const handler: PlasmoMessaging.MessageHandler = async (req, res) => {
 
     // If there's already an ongoing request, wait for it
     if (ongoingRequest) {
-      console.log("⏳ get-settings: Waiting for ongoing request...")
+      console.log("⏳ get-friends: Waiting for ongoing request...")
       try {
         const result = await ongoingRequest
         res.send(result)
@@ -40,13 +40,13 @@ const handler: PlasmoMessaging.MessageHandler = async (req, res) => {
       }
     }
 
-    console.log("📡 get-settings: Fetching fresh settings from API...")
+    console.log("👥 get-friends: Fetching fresh friends from API...")
     
     const API_BASE_URL = process.env.PLASMO_PUBLIC_BACKEND_URL;
     
     // Create the request promise and store it
     ongoingRequest = (async () => {
-      const response = await fetch(`${API_BASE_URL}/api/settings`, {
+      const response = await fetch(`${API_BASE_URL}/api/friends`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -58,23 +58,20 @@ const handler: PlasmoMessaging.MessageHandler = async (req, res) => {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const settings = await response.json();
+      const friends = await response.json();
       
       // Cache the successful response in session cache
-      sessionCache.settings = {
-        data: settings,
+      sessionCache.friends = {
+        data: friends,
         timestamp: Date.now()
       }
       
-      console.log("✅ get-settings: Fresh settings cached in session:", {
-        tagColor: settings.extensionSettings?.tag_color,
-        blockedWebsites: settings.blockedWebsites?.length || 0
-      })
+      console.log("✅ get-friends: Fresh friends cached in session:", friends.length)
 
       return {
         success: true,
-        data: settings,
-        message: "Settings retrieved successfully",
+        data: friends,
+        message: "Friends retrieved successfully",
         source: "api"
       }
     })()
@@ -84,18 +81,18 @@ const handler: PlasmoMessaging.MessageHandler = async (req, res) => {
     res.send(result)
 
   } catch (error) {
-    console.error("❌ get-settings: Error fetching settings:", error);
+    console.error("❌ get-friends: Error fetching friends:", error);
     
     // Clear the ongoing request on error
     ongoingRequest = null
     
     // If we have session cached data, return it even if stale
-    if (sessionCache.settings) {
-      console.log("🔄 get-settings: API failed, returning stale session cache")
+    if (sessionCache.friends) {
+      console.log("🔄 get-friends: API failed, returning stale session cache")
       res.send({
         success: true,
-        data: sessionCache.settings.data,
-        message: "Settings retrieved from stale session cache (API unavailable)",
+        data: sessionCache.friends.data,
+        message: "Friends retrieved from stale session cache (API unavailable)",
         source: "stale-session-cache"
       });
       return
@@ -104,7 +101,8 @@ const handler: PlasmoMessaging.MessageHandler = async (req, res) => {
     res.send({
       success: false,
       error: error.message,
-      message: "Failed to fetch settings"
+      message: "Failed to fetch friends",
+      data: [] // Return empty array as fallback
     });
   } finally {
     // Clear the ongoing request when done
