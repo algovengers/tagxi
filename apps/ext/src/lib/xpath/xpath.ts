@@ -165,24 +165,29 @@ const selectAndHighlightImage = (element: Node, taggedBy?: string) => {
   }
 }
 
+// FIXED: Restore original function signature with backward compatibility
 export const selectAndHighlightElement = (
   xpath: string,
   startOffset: number,
   endOffset?: number,
-  color = "yellow",
+  color?: string,
   taggedBy?: string
 ) => {
   const element = getElementFromXpath(xpath)
 
   if (!element) return
+  
+  // Use default color if not provided (backward compatibility)
+  const highlightColor = color || "yellow"
+  
   if (element.nodeType === Node.TEXT_NODE) {
     if (typeof startOffset === "number" && typeof endOffset === "number") {
-      selectAndHighlightText(element, startOffset, endOffset, color, taggedBy)
+      selectAndHighlightText(element, startOffset, endOffset, highlightColor, taggedBy)
     } else {
       const textContentLength = element.textContent?.length
         ? element.textContent.length
         : 0
-      selectAndHighlightText(element, startOffset, textContentLength, color, taggedBy)
+      selectAndHighlightText(element, startOffset, textContentLength, highlightColor, taggedBy)
     }
   } else if (
     element.nodeType === Node.ELEMENT_NODE &&

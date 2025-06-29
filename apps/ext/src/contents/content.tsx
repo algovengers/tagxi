@@ -212,20 +212,20 @@ const TagxiContentScript = () => {
               endOffset
             } = selectionRef.current
             
-            // Highlight with current user as the tagger
+            // FIXED: Use the correct function calls with proper parameters
             if (startContainerXPath === endContainerXPath) {
               selectAndHighlightElement(
                 startContainerXPath as string,
                 startOffset as number,
                 endOffset as number,
                 tagColor,
-                currentUsername // Pass current user as tagger
+                currentUsername // Pass current user as tagger for hover tooltip
               )
             } else {
               selectAndHighlightElement(
                 startContainerXPath as string,
                 startOffset as number,
-                undefined,
+                undefined, // endOffset not needed for single container
                 tagColor,
                 currentUsername
               )
@@ -249,7 +249,7 @@ const TagxiContentScript = () => {
         }
       }
     },
-    [tagColor, blockedWebsites, currentUsername]
+    [tagColor, blockedWebsites, currentUsername, isLoading]
   )
 
   const handleKeyboardInputs = (e: KeyboardEvent) => {
@@ -295,6 +295,7 @@ const TagxiContentScript = () => {
             end_tag_offset
           } = metadata
           try {
+            // FIXED: Use correct function calls for loading existing tags
             if (start_tag_xpath === end_tag_xpath) {
               selectAndHighlightElement(
                 start_tag_xpath,
@@ -304,8 +305,20 @@ const TagxiContentScript = () => {
                 owner // Pass the owner as the tagger for hover tooltip
               )
             } else {
-              selectAndHighlightElement(start_tag_xpath, start_tag_offset, undefined, tagColor, owner)
-              selectAndHighlightElement(end_tag_xpath, 0, end_tag_offset, tagColor, owner)
+              selectAndHighlightElement(
+                start_tag_xpath, 
+                start_tag_offset, 
+                undefined, 
+                tagColor, 
+                owner
+              )
+              selectAndHighlightElement(
+                end_tag_xpath, 
+                0, 
+                end_tag_offset, 
+                tagColor, 
+                owner
+              )
             }
             successCount++
           } catch (error) {
@@ -368,7 +381,7 @@ const TagxiContentScript = () => {
       document.removeEventListener("scroll", removeTagAndInputOnScroll)
       document.removeEventListener("keydown", handleKeyboardInputs)
     }
-  }, [])
+  }, [handleMouseUp])
 
   // Load existing tags when settings are loaded
   useEffect(() => {
