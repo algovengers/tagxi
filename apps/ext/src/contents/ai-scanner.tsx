@@ -31,6 +31,7 @@ export const getStyle = () => {
 const AIScannerContentScript = () => {
   const [isScanning, setIsScanning] = useState(false)
   const [isHighlighted, setIsHighlighted] = useState(false)
+  const [settingsLoaded, setSettingsLoaded] = useState(false)
   const [tagColor, setTagColor] = useState("#ffb988")
   const [blockedWebsites, setBlockedWebsites] = useState<string[]>([])
 
@@ -57,6 +58,7 @@ const AIScannerContentScript = () => {
   useEffect(() => {
     const loadSettings = async () => {
       try {
+        console.log("🔧 AI Scanner: Loading user settings...")
         const response = await sendToBackground({
           name: "get-settings"
         })
@@ -66,14 +68,23 @@ const AIScannerContentScript = () => {
           
           if (settings.extensionSettings?.tag_color) {
             setTagColor(settings.extensionSettings.tag_color)
+            console.log("✅ AI Scanner: Tag color loaded:", settings.extensionSettings.tag_color)
           }
           
           if (settings.blockedWebsites) {
             setBlockedWebsites(settings.blockedWebsites)
+            console.log("✅ AI Scanner: Blocked websites loaded:", settings.blockedWebsites)
           }
+          
+          setSettingsLoaded(true)
+          console.log("✅ AI Scanner: Settings loaded successfully")
+        } else {
+          console.warn("⚠️ AI Scanner: Failed to load settings, using defaults")
+          setSettingsLoaded(true)
         }
       } catch (error) {
-        console.warn("Failed to load settings, using default color:", error)
+        console.error("❌ AI Scanner: Error loading settings:", error)
+        setSettingsLoaded(true)
       }
     }
     
@@ -83,6 +94,11 @@ const AIScannerContentScript = () => {
   // Handle Ctrl+K keyboard shortcut
   useEffect(() => {
     const handleKeyDown = async (event: KeyboardEvent) => {
+      // Don't proceed if settings not loaded
+      if (!settingsLoaded) {
+        return
+      }
+      
       // Check if we're on an ignored site or blocked site
       if (IGNORE_LIST.some(ignore => window.location.href.startsWith(ignore)) || 
           isCurrentSiteBlocked()) {
@@ -114,7 +130,7 @@ const AIScannerContentScript = () => {
 
     document.addEventListener("keydown", handleKeyDown)
     return () => document.removeEventListener("keydown", handleKeyDown)
-  }, [isHighlighted, tagColor, blockedWebsites])
+  }, [isHighlighted, tagColor, blockedWebsites, settingsLoaded])
 
   const performAIScan = async () => {
     if (isScanning) return
@@ -148,8 +164,8 @@ const AIScannerContentScript = () => {
     }
   }
 
-  // Don't render anything if site is blocked
-  if (isCurrentSiteBlocked()) {
+  // Don't render anything if site is blocked or settings not loaded
+  if (isCurrentSiteBlocked() || !settingsLoaded) {
     return null
   }
 

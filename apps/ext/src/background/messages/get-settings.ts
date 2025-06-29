@@ -2,6 +2,8 @@ import type { PlasmoMessaging } from "@plasmohq/messaging"
 
 const handler: PlasmoMessaging.MessageHandler = async (req, res) => {
   try {
+    console.log("📡 get-settings: Fetching user settings...")
+    
     // First try to get from local storage (faster)
     const stored = await chrome.storage.local.get(['userSettings', 'lastSettingsUpdate']);
     
@@ -10,6 +12,7 @@ const handler: PlasmoMessaging.MessageHandler = async (req, res) => {
     const hasRecentCache = stored.lastSettingsUpdate && stored.lastSettingsUpdate > fiveMinutesAgo;
     
     if (hasRecentCache && stored.userSettings) {
+      console.log("✅ get-settings: Returning cached settings")
       res.send({
         success: true,
         data: stored.userSettings,
@@ -22,6 +25,7 @@ const handler: PlasmoMessaging.MessageHandler = async (req, res) => {
     // If no recent cache, fetch from API
     const API_BASE_URL = process.env.PLASMO_PUBLIC_BACKEND_URL;
     
+    console.log("🌐 get-settings: Fetching from API...")
     const response = await fetch(`${API_BASE_URL}/api/settings`, {
       method: 'GET',
       headers: {
@@ -31,6 +35,7 @@ const handler: PlasmoMessaging.MessageHandler = async (req, res) => {
     });
 
     if (!response.ok) {
+      console.warn("⚠️ get-settings: API request failed, trying cached settings")
       // If API fails, try to return cached settings anyway
       if (stored.userSettings) {
         res.send({
@@ -46,6 +51,10 @@ const handler: PlasmoMessaging.MessageHandler = async (req, res) => {
     }
 
     const settings = await response.json();
+    console.log("✅ get-settings: Settings fetched from API:", {
+      tagColor: settings.extensionSettings?.tag_color,
+      blockedWebsites: settings.blockedWebsites?.length || 0
+    })
     
     // Update cache
     await chrome.storage.local.set({
@@ -60,12 +69,13 @@ const handler: PlasmoMessaging.MessageHandler = async (req, res) => {
       source: "api"
     });
   } catch (error) {
-    console.error("Error fetching settings:", error);
+    console.error("❌ get-settings: Error fetching settings:", error);
     
     // Try to return any cached settings as fallback
     try {
       const stored = await chrome.storage.local.get(['userSettings']);
       if (stored.userSettings) {
+        console.log("🔄 get-settings: Returning fallback cached settings")
         res.send({
           success: true,
           data: stored.userSettings,
@@ -75,9 +85,10 @@ const handler: PlasmoMessaging.MessageHandler = async (req, res) => {
         return;
       }
     } catch (storageError) {
-      console.error("Failed to get fallback settings:", storageError);
+      console.error("❌ get-settings: Failed to get fallback settings:", storageError);
     }
     
+    console.log("❌ get-settings: No settings available, returning error")
     res.send({
       success: false,
       error: error.message,

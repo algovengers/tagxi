@@ -4,12 +4,14 @@ import { authClient } from "~lib/auth/auth-client"
 
 const handler: PlasmoMessaging.MessageHandler = async (req, res) => {
   try {
+    console.log("🔐 get-auth: Checking authentication...")
     const session = await authClient.getSession()
     
     let settings = null
     
     // If user is authenticated, fetch their settings
     if (session?.data?.user) {
+      console.log("👤 get-auth: User authenticated, fetching settings...")
       try {
         const API_BASE_URL = process.env.PLASMO_PUBLIC_BACKEND_URL;
         
@@ -23,6 +25,10 @@ const handler: PlasmoMessaging.MessageHandler = async (req, res) => {
 
         if (settingsResponse.ok) {
           settings = await settingsResponse.json();
+          console.log("✅ get-auth: Settings fetched and cached:", {
+            tagColor: settings.extensionSettings?.tag_color,
+            blockedWebsites: settings.blockedWebsites?.length || 0
+          })
           
           // Store settings in chrome storage for offline access
           await chrome.storage.local.set({
@@ -31,18 +37,21 @@ const handler: PlasmoMessaging.MessageHandler = async (req, res) => {
           });
         }
       } catch (error) {
-        console.warn("Failed to fetch user settings:", error);
+        console.warn("⚠️ get-auth: Failed to fetch user settings:", error);
         
         // Try to get cached settings from storage
         try {
           const stored = await chrome.storage.local.get(['userSettings']);
           if (stored.userSettings) {
             settings = stored.userSettings;
+            console.log("🔄 get-auth: Using cached settings")
           }
         } catch (storageError) {
-          console.warn("Failed to get cached settings:", storageError);
+          console.warn("❌ get-auth: Failed to get cached settings:", storageError);
         }
       }
+    } else {
+      console.log("🚫 get-auth: User not authenticated")
     }
     
     res.send({
@@ -50,7 +59,7 @@ const handler: PlasmoMessaging.MessageHandler = async (req, res) => {
       settings: settings
     })
   } catch (error) {
-    console.error("Error in get-auth handler:", error);
+    console.error("❌ get-auth: Error in handler:", error);
     res.send({
       redirect: null,
       settings: null

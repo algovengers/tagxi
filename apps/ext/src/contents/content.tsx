@@ -46,6 +46,7 @@ const TagxiContentScript = () => {
   const [iconPosition, setIconPosition] = useState({ top: 0, left: 0 })
   const [showInput, setShowInput] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [settingsLoaded, setSettingsLoaded] = useState(false)
   const [tagColor, setTagColor] = useState("#ffb988") // Default color
   const [blockedWebsites, setBlockedWebsites] = useState<string[]>([])
   const [lastScroll, setLastScroll] = useState({
@@ -76,6 +77,7 @@ const TagxiContentScript = () => {
   // Load user settings
   const loadSettings = async () => {
     try {
+      console.log("🔧 Loading user settings...")
       const response = await sendToBackground({
         name: "get-settings"
       })
@@ -86,21 +88,24 @@ const TagxiContentScript = () => {
         // Update tag color
         if (settings.extensionSettings?.tag_color) {
           setTagColor(settings.extensionSettings.tag_color)
+          console.log("✅ Tag color loaded:", settings.extensionSettings.tag_color)
         }
         
         // Update blocked websites
         if (settings.blockedWebsites) {
           setBlockedWebsites(settings.blockedWebsites)
+          console.log("✅ Blocked websites loaded:", settings.blockedWebsites)
         }
         
-        console.log("Settings loaded:", {
-          tagColor: settings.extensionSettings?.tag_color,
-          blockedWebsites: settings.blockedWebsites,
-          source: response.source
-        })
+        setSettingsLoaded(true)
+        console.log("✅ Settings loaded successfully from:", response.source)
+      } else {
+        console.warn("⚠️ Failed to load settings, using defaults")
+        setSettingsLoaded(true) // Still mark as loaded to proceed
       }
     } catch (error) {
-      console.warn("Failed to load settings:", error)
+      console.error("❌ Error loading settings:", error)
+      setSettingsLoaded(true) // Mark as loaded to prevent blocking
     }
   }
 
@@ -111,8 +116,8 @@ const TagxiContentScript = () => {
   }
 
   const handleMouseUp = useCallback((e: MouseEvent) => {
-    // Check if site is blocked
-    if (isCurrentSiteBlocked()) {
+    // Don't proceed if settings not loaded or site is blocked
+    if (!settingsLoaded || isCurrentSiteBlocked()) {
       return
     }
     
@@ -152,7 +157,7 @@ const TagxiContentScript = () => {
     setLastScroll({ y: window.scrollY, x: window.scrollX })
     setShowIcon(true)
     setShowInput(false)
-  }, [blockedWebsites])
+  }, [settingsLoaded, blockedWebsites])
 
   const handleIconClick = useCallback(() => {
     setShowInput(true)
@@ -249,9 +254,9 @@ const TagxiContentScript = () => {
   }
 
   const loadExistingTags = async () => {
-    // Check if site is blocked
-    if (isCurrentSiteBlocked()) {
-      console.log("TagXi is disabled on this website")
+    // Don't load tags if settings not loaded or site is blocked
+    if (!settingsLoaded || isCurrentSiteBlocked()) {
+      console.log("🚫 Skipping tag loading - settings not loaded or site blocked")
       return
     }
     
@@ -260,6 +265,9 @@ const TagxiContentScript = () => {
         .length
     )
       return
+    
+    console.log("🏷️ Loading existing tags with color:", tagColor)
+    
     try {
       const response = await sendToBackground({
         name: "get-tag",
@@ -267,7 +275,6 @@ const TagxiContentScript = () => {
       })
       if (response.success && response.data) {
         let successCount = 0
-        let errorCount = 0
         
         response.data.forEach(({ metadata }) => {
           const {
@@ -290,21 +297,17 @@ const TagxiContentScript = () => {
             }
             successCount++
           } catch (error) {
-            console.warn("Failed to highlight tag:", error, { metadata })
-            errorCount++
+            console.warn("Failed to highlight tag:", error)
           }
         })
         
         if (successCount > 0) {
-          console.log(`Successfully loaded ${successCount} tags`)
-        }
-        if (errorCount > 0) {
-          console.warn(`Failed to load ${errorCount} tags (page content may have changed)`)
+          console.log(`✅ Successfully loaded ${successCount} tags with color ${tagColor}`)
         }
       } else if (!response.success && response.authenticationRequired) {
         showToast("warning", "Please sign in to load and save tags")
       } else {
-        showToast("danger", "Error loading existing tags")
+        console.log("No existing tags found")
       }
     } catch (error) {
       console.error("Error loading existing tags:", error)
@@ -331,32 +334,41 @@ const TagxiContentScript = () => {
     }
   }, [])
 
+  // Initial setup - load settings first, then tags
   useEffect(() => {
-    // Load settings first
-    loadSettings().then(() => {
-      // Only load existing tags after settings are loaded
-      loadExistingTags()
-    })
+    const initializeExtension = async () => {
+      console.log("🚀 Initializing TagXi extension...")
+      
+      // Step 1: Load settings
+      await loadSettings()
+      
+      // Step 2: Load existing tags (only after settings are loaded)
+      // This will be triggered by the settingsLoaded effect below
+    }
+    
+    initializeExtension()
     
     document.addEventListener("mouseup", handleMouseUp)
     document.addEventListener("scroll", removeTagAndInputOnScroll)
     document.addEventListener("keydown", handleKeyboardInputs)
     return () => {
       document.removeEventListener("mouseup", handleMouseUp)
-      document.addEventListener("scroll", removeTagAndInputOnScroll)
-      document.addEventListener("keydown", handleKeyboardInputs)
+      document.removeEventListener("scroll", removeTagAndInputOnScroll)
+      document.removeEventListener("keydown", handleKeyboardInputs)
     }
   }, [])
 
-  // Re-run when settings change
+  // Load existing tags when settings are loaded
   useEffect(() => {
-    if (tagColor !== "#ffb988") { // Only reload if color has changed from default
+    if (settingsLoaded) {
+      console.log("⚙️ Settings loaded, now loading existing tags...")
       loadExistingTags()
     }
-  }, [tagColor])
+  }, [settingsLoaded, tagColor])
 
   // Don't render anything if site is blocked
   if (isCurrentSiteBlocked()) {
+    console.log("🚫 TagXi disabled on this website")
     return null
   }
 
