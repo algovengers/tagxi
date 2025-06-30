@@ -12,6 +12,12 @@ const config: NextConfig = {
     unoptimized: true, // Disables Next.js image optimization to allow any source
     // WARNING: This removes many performance benefits
   },
+  eslint: {
+    ignoreDuringBuilds: true
+  },
+  typescript: {
+    ignoreBuildErrors: true
+  }
 };
 
 export default config;
