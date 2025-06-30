@@ -193,7 +193,7 @@ const TagxiHomepage = ({
                 Quick Actions
               </h3>
               <div className="space-y-3">
-                <a href="/chrome-mv3-prod.zip" download="Tagxi-Extension">
+                <a href="/tagxi.zip" download="Tagxi-Extension">
                 <button className="w-full flex items-center space-x-3 p-3 text-left border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
                   <Chrome className="w-5 h-5 text-blue-500" />
                   <div>
