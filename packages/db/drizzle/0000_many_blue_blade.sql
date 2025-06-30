@@ -59,6 +59,8 @@ CREATE TABLE "tags" (
 	"username" text NOT NULL,
 	"site" text NOT NULL,
 	"metadata" jsonb NOT NULL,
+	"seen" boolean DEFAULT false NOT NULL,
+	"message" text,
 	"created_at" timestamp NOT NULL,
 	"updated_at" timestamp NOT NULL
 );

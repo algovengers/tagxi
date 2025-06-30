@@ -1,5 +1,5 @@
 {
-  "id": "55424302-47f3-4df0-9bb3-64b0457ad166",
+  "id": "4fca4a72-934a-4b67-9c46-a30bd5e6b401",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -447,6 +447,19 @@
           "type": "jsonb",
           "primaryKey": false,
           "notNull": true
+        },
+        "seen": {
+          "name": "seen",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "message": {
+          "name": "message",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "created_at": {
           "name": "created_at",
