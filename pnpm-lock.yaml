@@ -84,9 +84,6 @@ importers:
 
   apps/nextjs:
     dependencies:
-      '@neondatabase/serverless':
-        specifier: ^1.0.1
-        version: 1.0.1
       '@paralleldrive/cuid2':
         specifier: ^2.2.2
         version: 2.2.2
@@ -7724,6 +7721,7 @@ snapshots:
     dependencies:
       '@types/node': 22.15.34
       '@types/pg': 8.15.4
+    optional: true
 
   '@next/env@15.3.3': {}
 

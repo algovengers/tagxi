@@ -36,10 +36,11 @@ export default function SignupPage() {
 
   const { mutate: continueWithGoogle, isPending: googlePending } = useMutation({
     mutationKey: ["continueWithGoogle"],
-    mutationFn: () => signIn.social({ 
-      provider: "google",
-      callbackURL: "/onboarding", // Redirect to onboarding for new users
-    }),
+    mutationFn: () =>
+      signIn.social({
+        provider: "google",
+        callbackURL: "/onboarding", // Redirect to onboarding for new users
+      }),
     onError: (error) => {
       console.error("Google sign-up error:", error);
     },
@@ -82,7 +83,7 @@ export default function SignupPage() {
       <h1 className="text-center font-bold text-3xl">Tagxi</h1>
       <div className="relative z-10 w-full max-w-md mt-8 mx-auto h-full py-auto flex-1 flex">
         <div className="my-auto flex-1">
-          <div className="space-y-6">
+          {/* <div className="space-y-6">
             <div className="space-y-2">
               <div className="relative">
                 <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -166,13 +167,13 @@ export default function SignupPage() {
             >
               {showFields ? "Sign up" : "Continue"}
             </Button>
-          </div>
+          </div> */}
 
-          <div className="my-8 flex items-center">
+          {/* <div className="my-8 flex items-center">
             <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
             <span className="px-4 text-sm text-gray-500">or continue with</span>
             <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
-          </div>
+          </div> */}
 
           <Button
             className="w-full flex items-center justify-center py-3 px-4 bg-white/80 rounded-md border-black shadow-none hover:bg-white/70"
@@ -190,7 +191,7 @@ export default function SignupPage() {
             </span>
           </Button>
 
-          <div className="mt-8 text-center">
+          {/* <div className="mt-8 text-center">
             <p className="text-gray-600">
               Already have an account?{" "}
               <Link
@@ -200,7 +201,7 @@ export default function SignupPage() {
                 Log in here
               </Link>
             </p>
-          </div>
+          </div> */}
         </div>
       </div>
     </div>

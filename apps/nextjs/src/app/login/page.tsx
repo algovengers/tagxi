@@ -42,10 +42,11 @@ export default function LoginPage() {
 
   const { mutate: continueWithGoogle, isPending: googlePending } = useMutation({
     mutationKey: ["continueWithGoogle"],
-    mutationFn: () => signIn.social({ 
-      provider: "google",
-      callbackURL: "/home", // Specify callback URL
-    }),
+    mutationFn: () =>
+      signIn.social({
+        provider: "google",
+        callbackURL: "/home", // Specify callback URL
+      }),
     onError: (error) => {
       console.error("Google sign-in error:", error);
     },
@@ -62,7 +63,7 @@ export default function LoginPage() {
     <div className="min-h-screen max-w-4xl mx-auto py-8">
       <h1 className="text-center font-bold text-3xl">Tagxi</h1>
       <div className="relative z-10 w-full max-w-md mt-8 mx-auto">
-        <form onSubmit={handleLogin}>
+        {/* <form onSubmit={handleLogin}>
           <div className="space-y-6">
             <div className="space-y-2">
               <div className="relative">
@@ -122,31 +123,31 @@ export default function LoginPage() {
               Sign in
             </Button>
           </div>
-        </form>
+        </form> */}
 
-        <div className="my-8 flex items-center">
+        {/* <div className="my-8 flex items-center">
           <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
           <span className="px-4 text-sm text-gray-500">or continue with</span>
           <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
-        </div>
+        </div> */}
 
-          <Button
-            className="w-full flex items-center justify-center py-3 px-4 bg-white/80 rounded-md border-black shadow-none hover:bg-white/70 cursor-pointer"
-            onClick={() => continueWithGoogle()}
-            isLoading={googlePending}
-          >
-            <Image
-              src="/google.svg"
-              alt="Continue with google"
-              height={20}
-              width={20}
-            />
-            <span className="text-gray-700 font-medium">
-              Continue with Google
-            </span>
-          </Button>
+        <Button
+          className="w-full flex items-center justify-center py-3 px-4 bg-white/80 rounded-md border-black shadow-none hover:bg-white/70 cursor-pointer"
+          onClick={() => continueWithGoogle()}
+          isLoading={googlePending}
+        >
+          <Image
+            src="/google.svg"
+            alt="Continue with google"
+            height={20}
+            width={20}
+          />
+          <span className="text-gray-700 font-medium">
+            Continue with Google
+          </span>
+        </Button>
 
-        <div className="mt-8 text-center">
+        {/* <div className="mt-8 text-center">
           <p className="text-gray-600">
             New to tagxi?{" "}
             <Link
@@ -156,7 +157,7 @@ export default function LoginPage() {
               Sign up here
             </Link>
           </p>
-        </div>
+        </div> */}
       </div>
     </div>
   );
