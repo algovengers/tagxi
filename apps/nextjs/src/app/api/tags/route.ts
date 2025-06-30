@@ -11,7 +11,7 @@ export const POST = withAuth(async (request, session) => {
   if ("error" in data) {
     return NextResponse.json({ error: data.error.format() }, { status: 400 });
   }
-  const { site, metadata, usernames } = data;
+  const { site, metadata, usernames, message } = data;
 
   const newTag = await db
     .insert(tag)
@@ -20,6 +20,7 @@ export const POST = withAuth(async (request, session) => {
       site: site,
       username: session?.user.username as string,
       metadata: metadata,
+      message,
     })
     .returning();
 
@@ -49,6 +50,7 @@ export const GET = withAuth(async (request, session) => {
     .select({
       owner: tag.username,
       metadata: tag.metadata,
+      message: tag.message,
     })
     .from(tag)
     .where(

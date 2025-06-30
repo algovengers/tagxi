@@ -22,6 +22,7 @@ export interface CreateTagRequest {
 export interface TagResponse {
   owner: string
   metadata: TagMetadata
+  message?: string
 }
 
 export interface GetTagsResponse {

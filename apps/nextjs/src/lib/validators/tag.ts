@@ -17,6 +17,7 @@ export const createTagSchema = z.object({
   site: z.string().url("Invalid site URL").min(1, "Site URL is required"),
   metadata: metadataSchema,
   usernames: z.array(z.string()).min(1),
+  message: z.string().optional(),
 });
 
 export const getTagsByWebsiteSchema = z.object({
@@ -38,6 +39,6 @@ export const tagIdSchema = z.object({
 });
 
 export const tagFilterSchema = z.object({
-  site:z.string(),
-  username:z.string()
-})
+  site: z.string(),
+  username: z.string(),
+});
