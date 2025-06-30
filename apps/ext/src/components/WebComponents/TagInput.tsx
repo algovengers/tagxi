@@ -35,7 +35,6 @@ const TagInput: React.FC<TagInputProps> = ({
 
   // Function to find the current @ tag being typed
   const findCurrentTag = (text: string, cursorPos: number) => {
-    // Look backwards from cursor to find @
     let atIndex = -1
     for (let i = cursorPos - 1; i >= 0; i--) {
       if (text[i] === "@") {
@@ -49,7 +48,6 @@ const TagInput: React.FC<TagInputProps> = ({
 
     if (atIndex === -1) return null
 
-    // Look forward from @ to find end of tag (space or end of string)
     let endIndex = text.length
     for (let i = atIndex + 1; i < text.length; i++) {
       if (text[i] === " ") {
@@ -58,7 +56,6 @@ const TagInput: React.FC<TagInputProps> = ({
       }
     }
 
-    // Extract the tag content (without @)
     const tagContent = text.slice(atIndex + 1, endIndex)
 
     return {

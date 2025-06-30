@@ -16,7 +16,8 @@ const selectAndHighlightText = (
   start: number,
   end: number,
   color = "yellow",
-  taggedBy?: string
+  taggedBy?: string,
+  message?: string
 ) => {
   const textNode = element as Text
   const before = textNode.splitText(start)
@@ -24,13 +25,13 @@ const selectAndHighlightText = (
   const wrapper = document.createElement("mark")
   wrapper.style.backgroundColor = color
   wrapper.textContent = before.textContent
-  
+
   // Add hover functionality for user-tagged content
   if (taggedBy) {
     wrapper.setAttribute("data-tagxi-tagged-by", taggedBy)
     wrapper.style.cursor = "pointer"
     wrapper.style.position = "relative"
-    
+
     // Create hover tooltip
     const createTooltip = () => {
       const tooltip = document.createElement("div")
@@ -42,19 +43,51 @@ const selectAndHighlightText = (
         transform: translateX(-50%);
         background: rgba(0, 0, 0, 0.9);
         color: white;
-        padding: 6px 10px;
-        border-radius: 6px;
+        padding: 10px;
+        border-radius: 8px;
         font-size: 12px;
         font-weight: 500;
-        white-space: nowrap;
         z-index: 10000;
         pointer-events: none;
         opacity: 0;
         transition: opacity 0.2s ease;
-        margin-bottom: 5px;
+        margin-bottom: 8px;
+        max-width: 300px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
       `
-      tooltip.textContent = `👤 Tagged by @${taggedBy}`
-      
+
+      // Add username with styling
+      const usernameDiv = document.createElement("div")
+      usernameDiv.style.cssText = `
+        font-weight: 600;
+        font-size: 13px;
+        margin-bottom: 5px;
+        display: flex;
+        align-items: center;
+      `
+      const userIcon = document.createElement("span")
+      userIcon.textContent = "👤 "
+      userIcon.style.marginRight = "5px"
+
+      usernameDiv.appendChild(userIcon)
+      usernameDiv.appendChild(document.createTextNode(`@${taggedBy}`))
+      tooltip.appendChild(usernameDiv)
+
+      // Add message if available
+      if (message && message.trim()) {
+        const messageDiv = document.createElement("div")
+        messageDiv.style.cssText = `
+          color: rgba(255, 255, 255, 0.9);
+          font-weight: normal;
+          margin-top: 4px;
+          line-height: 1.4;
+          white-space: normal;
+          word-break: break-word;
+        `
+        messageDiv.textContent = message
+        tooltip.appendChild(messageDiv)
+      }
+
       // Add arrow
       const arrow = document.createElement("div")
       arrow.style.cssText = `
@@ -64,17 +97,17 @@ const selectAndHighlightText = (
         transform: translateX(-50%);
         width: 0;
         height: 0;
-        border-left: 5px solid transparent;
-        border-right: 5px solid transparent;
-        border-top: 5px solid rgba(0, 0, 0, 0.9);
+        border-left: 6px solid transparent;
+        border-right: 6px solid transparent;
+        border-top: 6px solid rgba(0, 0, 0, 0.9);
       `
       tooltip.appendChild(arrow)
-      
+
       return tooltip
     }
-    
+
     let tooltip: HTMLElement | null = null
-    
+
     wrapper.addEventListener("mouseenter", () => {
       tooltip = createTooltip()
       wrapper.appendChild(tooltip)
@@ -83,7 +116,7 @@ const selectAndHighlightText = (
         if (tooltip) tooltip.style.opacity = "1"
       })
     })
-    
+
     wrapper.addEventListener("mouseleave", () => {
       if (tooltip) {
         tooltip.style.opacity = "0"
@@ -96,11 +129,15 @@ const selectAndHighlightText = (
       }
     })
   }
-  
+
   before.replaceWith(wrapper)
 }
 
-const selectAndHighlightImage = (element: Node, taggedBy?: string) => {
+const selectAndHighlightImage = (
+  element: Node,
+  taggedBy?: string,
+  message?: string
+) => {
   if (
     element &&
     element.nodeType === Node.ELEMENT_NODE &&
@@ -110,38 +147,86 @@ const selectAndHighlightImage = (element: Node, taggedBy?: string) => {
     img.style.border = "3px solid red"
     img.style.borderRadius = "4px"
     img.style.position = "relative"
-    
+
     // Add hover functionality for user-tagged content
     if (taggedBy) {
       img.setAttribute("data-tagxi-tagged-by", taggedBy)
       img.style.cursor = "pointer"
-      
+
       let tooltip: HTMLElement | null = null
-      
+
       const createTooltip = () => {
         const tooltip = document.createElement("div")
         tooltip.className = "tagxi-hover-tooltip"
         tooltip.style.cssText = `
           position: absolute;
-          top: -35px;
+          top: -10px;
           left: 50%;
-          transform: translateX(-50%);
+          transform: translate(-50%, -100%);
           background: rgba(0, 0, 0, 0.9);
           color: white;
-          padding: 6px 10px;
-          border-radius: 6px;
+          padding: 10px;
+          border-radius: 8px;
           font-size: 12px;
           font-weight: 500;
-          white-space: nowrap;
           z-index: 10000;
           pointer-events: none;
           opacity: 0;
           transition: opacity 0.2s ease;
+          max-width: 300px;
+          box-shadow: 0 2px 10px rgba(0,0,0,0.2);
         `
-        tooltip.textContent = `👤 Tagged by @${taggedBy}`
+
+        // Add username with styling
+        const usernameDiv = document.createElement("div")
+        usernameDiv.style.cssText = `
+          font-weight: 600;
+          font-size: 13px;
+          margin-bottom: 5px;
+          display: flex;
+          align-items: center;
+        `
+        const userIcon = document.createElement("span")
+        userIcon.textContent = "👤 "
+        userIcon.style.marginRight = "5px"
+
+        usernameDiv.appendChild(userIcon)
+        usernameDiv.appendChild(document.createTextNode(`@${taggedBy}`))
+        tooltip.appendChild(usernameDiv)
+
+        // Add message if available
+        if (message && message.trim()) {
+          const messageDiv = document.createElement("div")
+          messageDiv.style.cssText = `
+            color: rgba(255, 255, 255, 0.9);
+            font-weight: normal;
+            margin-top: 4px;
+            line-height: 1.4;
+            white-space: normal;
+            word-break: break-word;
+          `
+          messageDiv.textContent = message
+          tooltip.appendChild(messageDiv)
+        }
+
+        // Add arrow
+        const arrow = document.createElement("div")
+        arrow.style.cssText = `
+          position: absolute;
+          bottom: -6px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 0;
+          height: 0;
+          border-left: 6px solid transparent;
+          border-right: 6px solid transparent;
+          border-top: 6px solid rgba(0, 0, 0, 0.9);
+        `
+        tooltip.appendChild(arrow)
+
         return tooltip
       }
-      
+
       img.addEventListener("mouseenter", () => {
         tooltip = createTooltip()
         img.parentElement?.appendChild(tooltip)
@@ -149,7 +234,7 @@ const selectAndHighlightImage = (element: Node, taggedBy?: string) => {
           if (tooltip) tooltip.style.opacity = "1"
         })
       })
-      
+
       img.addEventListener("mouseleave", () => {
         if (tooltip) {
           tooltip.style.opacity = "0"
@@ -165,70 +250,134 @@ const selectAndHighlightImage = (element: Node, taggedBy?: string) => {
   }
 }
 
-// FIXED: Restore original function signature with backward compatibility
+// FIXED: Updated function signature to include message parameter
 export const selectAndHighlightElement = (
   xpath: string,
   startOffset: number,
   endOffset?: number,
   color?: string,
-  taggedBy?: string
+  taggedBy?: string,
+  message?: string
 ) => {
   const element = getElementFromXpath(xpath)
 
   if (!element) return
-  
+
   // Use default color if not provided (backward compatibility)
   const highlightColor = color || "yellow"
-  
+
   if (element.nodeType === Node.TEXT_NODE) {
     if (typeof startOffset === "number" && typeof endOffset === "number") {
-      selectAndHighlightText(element, startOffset, endOffset, highlightColor, taggedBy)
+      selectAndHighlightText(
+        element,
+        startOffset,
+        endOffset,
+        highlightColor,
+        taggedBy,
+        message
+      )
     } else {
       const textContentLength = element.textContent?.length
         ? element.textContent.length
         : 0
-      selectAndHighlightText(element, startOffset, textContentLength, highlightColor, taggedBy)
+      selectAndHighlightText(
+        element,
+        startOffset,
+        textContentLength,
+        highlightColor,
+        taggedBy,
+        message
+      )
     }
   } else if (
     element.nodeType === Node.ELEMENT_NODE &&
     (element as HTMLElement).tagName === "IMG"
   ) {
-    selectAndHighlightImage(element, taggedBy)
+    selectAndHighlightImage(element, taggedBy, message)
   } else if (element.nodeType === Node.ELEMENT_NODE) {
     const htmlElement = element as HTMLElement
     htmlElement.style.outline = "2px dashed blue"
     htmlElement.style.position = "relative"
-    
+
     // Add hover functionality for user-tagged content
     if (taggedBy) {
       htmlElement.setAttribute("data-tagxi-tagged-by", taggedBy)
       htmlElement.style.cursor = "pointer"
-      
+
       let tooltip: HTMLElement | null = null
-      
+
       const createTooltip = () => {
         const tooltip = document.createElement("div")
         tooltip.className = "tagxi-hover-tooltip"
         tooltip.style.cssText = `
           position: absolute;
-          top: -35px;
+          top: -10px;
           left: 10px;
+          transform: translateY(-100%);
           background: rgba(0, 0, 0, 0.9);
           color: white;
-          padding: 6px 10px;
-          border-radius: 6px;
+          padding: 10px;
+          border-radius: 8px;
           font-size: 12px;
           font-weight: 500;
-          white-space: nowrap;
           z-index: 10000;
           pointer-events: none;
           opacity: 0;
           transition: opacity 0.2s ease;
+          max-width: 300px;
+          box-shadow: 0 2px 10px rgba(0,0,0,0.2);
         `
-        tooltip.textContent = `👤 Tagged by @${taggedBy}`
+
+        // Add username with styling
+        const usernameDiv = document.createElement("div")
+        usernameDiv.style.cssText = `
+          font-weight: 600;
+          font-size: 13px;
+          margin-bottom: 5px;
+          display: flex;
+          align-items: center;
+        `
+        const userIcon = document.createElement("span")
+        userIcon.textContent = "👤 "
+        userIcon.style.marginRight = "5px"
+
+        usernameDiv.appendChild(userIcon)
+        usernameDiv.appendChild(document.createTextNode(`@${taggedBy}`))
+        tooltip.appendChild(usernameDiv)
+
+        // Add message if available
+        console.log("Message", message)
+        if (message && message.trim()) {
+          const messageDiv = document.createElement("div")
+          messageDiv.style.cssText = `
+            color: rgba(255, 255, 255, 0.9);
+            font-weight: normal;
+            margin-top: 4px;
+            line-height: 1.4;
+            white-space: normal;
+            word-break: break-word;
+          `
+          messageDiv.textContent = message
+          tooltip.appendChild(messageDiv)
+        }
+
+        // Add arrow
+        const arrow = document.createElement("div")
+        arrow.style.cssText = `
+          position: absolute;
+          bottom: -6px;
+          left: 20px;
+          width: 0;
+          height: 0;
+          border-left: 6px solid transparent;
+          border-right: 6px solid transparent;
+          border-top: 6px solid rgba(0, 0, 0, 0.9);
+        `
+        tooltip.appendChild(arrow)
+
         return tooltip
       }
-      
+
       htmlElement.addEventListener("mouseenter", () => {
         tooltip = createTooltip()
         htmlElement.appendChild(tooltip)
@@ -236,7 +385,7 @@ export const selectAndHighlightElement = (
           if (tooltip) tooltip.style.opacity = "1"
         })
       })
-      
+
       htmlElement.addEventListener("mouseleave", () => {
         if (tooltip) {
           tooltip.style.opacity = "0"

@@ -13,16 +13,18 @@ const handler: PlasmoMessaging.MessageHandler = async (req, res) => {
       startContainerXPath,
       endContainerXPath,
       startOffset,
-      endOffset
+      endOffset,
+      message
     } = req.body as {
       url: string
       selection: string
-      tag: string
+      tag: string[]
       timestamp: number
       startContainerXPath: string
       endContainerXPath: string
       startOffset: number
       endOffset: number
+      message?: string
     }
 
     console.log("Saving tag to backend:", { url, selection, tag, timestamp })
@@ -36,7 +38,8 @@ const handler: PlasmoMessaging.MessageHandler = async (req, res) => {
         start_tag_offset: startOffset,
         end_tag_offset: endOffset
       },
-      usernames: [tag] // Extract username from tag (remove @ if present)
+      usernames: tag, // Extract username from tag (remove @ if present)
+      message
     }
 
     // Use the API utility to save the tag

@@ -296,6 +296,24 @@ const TagxiContentScript = () => {
     setShowIcon(false)
   }, [])
 
+  const extractUsernames = (message: string): string[] => {
+    const usernames: string[] = []
+    const splittedArr = message.split("@")
+
+    // Skip the first element as it's before any @ symbol
+    for (let i = 1; i < splittedArr.length; i++) {
+      // Extract username part (until the next space or end of string)
+      const usernameWithRest = splittedArr[i]
+      const usernameMatch = usernameWithRest.match(/^(\w+)/)
+
+      if (usernameMatch && usernameMatch[1]) {
+        usernames.push(usernameMatch[1])
+      }
+    }
+
+    return usernames
+  }
+
   const handleInputKeyDown = useCallback(
     async (e: React.KeyboardEvent<HTMLInputElement>) => {
       // Check if site is blocked
@@ -317,11 +335,15 @@ const TagxiContentScript = () => {
         // Information to store
         // store containers xpath -> if text is selected in more than two html elements
         // use offset to calculate the start(container) and end(end container)
+
+        const usernames = extractUsernames(value)
+
         try {
           const data = {
             url: window.location.href,
-            tag: value,
+            tag: usernames,
             timestamp: Date.now(),
+            message: value,
             ...selectionRef.current
           }
 
@@ -345,7 +367,8 @@ const TagxiContentScript = () => {
                 startOffset as number,
                 endOffset as number,
                 tagColor,
-                currentUsername // Pass current user as tagger for hover tooltip
+                currentUsername, // Pass current user as tagger for hover tooltip
+                value
               )
             } else {
               selectAndHighlightElement(
@@ -353,14 +376,16 @@ const TagxiContentScript = () => {
                 startOffset as number,
                 undefined, // endOffset not needed for single container
                 tagColor,
-                currentUsername
+                currentUsername,
+                value
               )
               selectAndHighlightElement(
                 endContainerXPath as string,
                 0,
                 endOffset as number,
                 tagColor,
-                currentUsername
+                currentUsername,
+                value
               )
             }
             showToast("success", "Tag saved")
@@ -418,7 +443,7 @@ const TagxiContentScript = () => {
       if (response.success && response.data) {
         let successCount = 0
 
-        response.data.forEach(({ metadata, owner }) => {
+        response.data.forEach(({ metadata, owner, message }) => {
           const {
             start_tag_offset,
             end_tag_xpath,
@@ -433,7 +458,8 @@ const TagxiContentScript = () => {
                 start_tag_offset,
                 end_tag_offset,
                 tagColor,
-                owner // Pass the owner as the tagger for hover tooltip
+                owner, // Pass the owner as the tagger for hover tooltip
+                message
               )
             } else {
               selectAndHighlightElement(
@@ -441,14 +467,16 @@ const TagxiContentScript = () => {
                 start_tag_offset,
                 undefined,
                 tagColor,
-                owner
+                owner,
+                message
               )
               selectAndHighlightElement(
                 end_tag_xpath,
                 0,
                 end_tag_offset,
                 tagColor,
-                owner
+                owner,
+                message
               )
             }
             successCount++
